@@ -90,9 +90,9 @@ export function SettingsPage() {
     }
   };
 
-  /** 保存（新增/编辑）Provider */
+  /** 保存（新增/编辑）Provider，并触发主进程重载 Provider */
   const handleSaveProvider = (config: ProviderConfig) => {
-    const icee = window.icee as (typeof window.icee & { saveProvider?: (config: ProviderConfig) => Promise<ProviderConfig> });
+    // 先更新本地 UI 状态
     setProviders(prev => {
       const exists = prev.find(p => p.id === config.id);
       if (exists) {
@@ -102,9 +102,26 @@ export function SettingsPage() {
     });
     setShowProviderForm(false);
     setEditingProvider(null);
-    if (icee?.saveProvider) {
-      icee.saveProvider(config).catch(console.error);
-    }
+
+    if (!window.icee) return;
+
+    // 保存到 SQLite，再触发主进程热重载 Provider（关键！）
+    window.icee.saveProvider(config as IceeProviderConfig)
+      .then((result) => {
+        if (result?.error) {
+          console.error("[ICEE Settings] saveProvider error:", result.error);
+          return;
+        }
+        console.log("[ICEE Settings] Provider saved, reloading main process provider...");
+        // 主进程重新读取 DB 中的默认 Provider 并健康检查
+        return window.icee?.reloadProvider();
+      })
+      .then((reloadResult) => {
+        if (reloadResult) {
+          console.log(`[ICEE Settings] Provider reloaded: healthy=${reloadResult.healthy} url=${reloadResult.url}`);
+        }
+      })
+      .catch(console.error);
   };
 
   /** 设置 MCP 文件系统根目录 */

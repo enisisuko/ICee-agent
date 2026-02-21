@@ -83,38 +83,49 @@ async function initRuntime(win: BrowserWindow) {
     const ollamaUrl = process.env["OLLAMA_URL"] ?? "http://localhost:11434";
 
     // 优先使用 DB 中配置的 Provider；若无则 fallback Ollama
-    let provider: InstanceType<typeof OllamaProvider> | InstanceType<typeof OpenAICompatibleProvider>;
-    let activeProviderUrl = ollamaUrl;
-    let useOllamaStyle = true;
+    // 使用对象容器包裹，确保 reload-provider 后 LLMNodeExecutor 闭包能拿到最新实例
+    const providerRef: {
+      instance: InstanceType<typeof OllamaProvider> | InstanceType<typeof OpenAICompatibleProvider>;
+      model: string;
+      url: string;
+      healthy: boolean;
+    } = {
+      instance: null as unknown as InstanceType<typeof OllamaProvider>,
+      model: "llama3.2",
+      url: ollamaUrl,
+      healthy: false,
+    };
 
     if (providerTypeInDb === "openai-compatible" || providerTypeInDb === "lm-studio" || providerTypeInDb === "custom") {
-      provider = new OpenAICompatibleProvider({
+      providerRef.instance = new OpenAICompatibleProvider({
         baseUrl: providerBaseUrlInDb ?? "https://api.openai.com/v1",
         ...(providerApiKeyInDb && { apiKey: providerApiKeyInDb }),
         ...(providerModelInDb && { defaultModel: providerModelInDb }),
       });
-      activeProviderUrl = providerBaseUrlInDb ?? "https://api.openai.com/v1";
-      useOllamaStyle = false;
+      providerRef.url = providerBaseUrlInDb ?? "https://api.openai.com/v1";
+      providerRef.model = providerModelInDb ?? "gpt-4o-mini";
     } else {
       // ollama 或未配置，使用 Ollama
       const ollamaBase = (providerTypeInDb === "ollama" && providerBaseUrlInDb)
         ? providerBaseUrlInDb
         : ollamaUrl;
-      provider = new OllamaProvider({ baseUrl: ollamaBase });
-      activeProviderUrl = ollamaBase;
-      useOllamaStyle = true;
+      providerRef.instance = new OllamaProvider({ baseUrl: ollamaBase });
+      providerRef.url = ollamaBase;
+      providerRef.model = providerModelInDb ?? "llama3.2";
     }
 
-    const activeModel = providerModelInDb ?? (useOllamaStyle ? "llama3.2" : "gpt-4o-mini");
+    // 兼容旧代码：保留 provider / activeModel 别名（只读引用，热重载通过 providerRef 实现）
+    const activeModel = providerRef.model;
 
-    console.log(`[ICEE Main] Using provider: type=${providerTypeInDb ?? "ollama(default)"} url=${activeProviderUrl} model=${activeModel}`);
+    console.log(`[ICEE Main] Using provider: type=${providerTypeInDb ?? "ollama(default)"} url=${providerRef.url} model=${activeModel}`);
 
     // ── 健康检查 ─────────────────────────────────────────────
-    const ollamaHealthy = await provider.healthCheck();
+    const ollamaHealthy = await providerRef.instance.healthCheck();
+    providerRef.healthy = ollamaHealthy;
 
     win.webContents.send("icee:ollama-status", {
       healthy: ollamaHealthy,
-      url: activeProviderUrl,
+      url: providerRef.url,
     });
 
     // ── 初始化 MCP 连接（使用文档目录作为默认允许目录）──
@@ -141,20 +152,21 @@ async function initRuntime(win: BrowserWindow) {
 
     registry.register(
       new LLMNodeExecutor(async (config, _input) => {
-        if (!ollamaHealthy) {
+        // 每次调用时从 providerRef 读取最新实例（热重载后即刻生效）
+        if (!providerRef.healthy) {
           // Provider 不可用时降级为 mock
           return {
-            text: `[Mock] ${config.model ?? activeModel}: Provider not available. Check Settings > Providers.`,
+            text: `[Mock] ${config.model ?? providerRef.model}: Provider not available. Check Settings > Providers.`,
             tokens: 50,
             costUsd: 0,
-            providerMeta: { provider: "mock", model: config.model ?? activeModel },
+            providerMeta: { provider: "mock", model: config.model ?? providerRef.model },
           };
         }
 
         // 优先使用节点配置的 model，fallback 到当前 Provider 的默认 model
-        const resolvedModel = config.model ?? activeModel;
+        const resolvedModel = config.model ?? providerRef.model;
 
-        const result = await provider.generateComplete({
+        const result = await providerRef.instance.generateComplete({
           model: resolvedModel,
           messages: [
             {
@@ -506,7 +518,8 @@ async function initRuntime(win: BrowserWindow) {
     });
 
     // ── IPC: reload-provider ────────────────────
-    // 前端保存新 Provider 配置后，触发主进程重新读取默认 Provider 并重新健康检查
+    // 前端保存新 Provider 配置后，触发主进程重新读取默认 Provider 并更新 providerRef
+    // 这样下次 run-graph 时 LLMNodeExecutor 闭包会自动使用新配置
     ipcMain.handle("icee:reload-provider", async () => {
       try {
         const newRow = iceeDb.instance.prepare(
@@ -518,26 +531,33 @@ async function initRuntime(win: BrowserWindow) {
           return { ok: true, message: "No default provider found" };
         }
 
-        // 重新构建 Provider 实例
-        let newProvider: InstanceType<typeof OllamaProvider> | InstanceType<typeof OpenAICompatibleProvider>;
+        // 重新构建 Provider 实例并替换 providerRef（LLMNodeExecutor 闭包下次调用即生效）
         let newUrl: string;
+        let newModel: string;
 
         if (newRow.type === "openai-compatible" || newRow.type === "lm-studio" || newRow.type === "custom") {
-          newProvider = new OpenAICompatibleProvider({
+          providerRef.instance = new OpenAICompatibleProvider({
             baseUrl: newRow.base_url,
             ...(newRow.api_key && { apiKey: newRow.api_key }),
             ...(newRow.model && { defaultModel: newRow.model }),
           });
           newUrl = newRow.base_url;
+          newModel = newRow.model ?? "gpt-4o-mini";
         } else {
-          newProvider = new OllamaProvider({ baseUrl: newRow.base_url });
+          providerRef.instance = new OllamaProvider({ baseUrl: newRow.base_url });
           newUrl = newRow.base_url;
+          newModel = newRow.model ?? "llama3.2";
         }
 
-        const healthy = await newProvider.healthCheck();
+        providerRef.url = newUrl;
+        providerRef.model = newModel;
+
+        const healthy = await providerRef.instance.healthCheck();
+        providerRef.healthy = healthy;
+
         win.webContents.send("icee:ollama-status", { healthy, url: newUrl });
 
-        console.log(`[ICEE Main] Provider reloaded: ${newRow.type} @ ${newUrl} — ${healthy ? "✅" : "❌"}`);
+        console.log(`[ICEE Main] Provider reloaded & applied: ${newRow.type} @ ${newUrl} model=${newModel} — ${healthy ? "✅" : "❌"}`);
         return { ok: true, healthy, url: newUrl };
       } catch (e) {
         console.error("[ICEE Main] reload-provider error:", e);
