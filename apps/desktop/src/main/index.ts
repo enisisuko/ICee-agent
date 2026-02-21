@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, shell, dialog } from "electron";
 import path from "path";
 import { fileURLToPath } from "url";
+import fs from "fs";
 import { McpClientManager } from "./mcp/McpClientManager.js";
 
 // vite-plugin-electron 将 main 打包为 ESM，需要手动重建 __dirname
@@ -27,12 +28,14 @@ const globalProviderRef: {
   instance: any | null;
   model: string;
   url: string;
+  type: string;    // DB 中的 provider type 字符串（如 "ollama"/"openai-compatible"/"lm-studio"）
   healthy: boolean;
   win: BrowserWindow | null;
 } = {
   instance: null,
   model: "llama3.2",
   url: "http://localhost:11434",
+  type: "ollama",  // 默认值
   healthy: false,
   win: null,
 };
@@ -54,6 +57,11 @@ async function ensureEarlyDb(): Promise</* IceeDatabase */ { instance: any }> { 
   const { getDatabase } = await import("@icee/db");
   const dbPath = path.join(app.getPath("userData"), "icee.db");
   console.log(`[ICEE DB] Opening database at: ${dbPath}`);
+
+  // ── 从旧路径自动迁移 DB 文件（一次性）────────────────────────────────
+  // 以前 userData 路径不固定（Electron/ 或 @icee\desktop/ 等），用户保存的配置
+  // 可能存在旧路径里。
+  fs.mkdirSync(path.dirname(dbPath), { recursive: true });
   earlyDbRef.db = getDatabase(dbPath);
 
   // ── 强制列迁移：确保 api_key 和 model 列存在 ───────────────────
@@ -78,7 +86,66 @@ async function ensureEarlyDb(): Promise</* IceeDatabase */ { instance: any }> { 
     }
   }
 
+  // ── 从旧 DB 路径迁移 providers 数据（一次性）──────────────────────
+  // 检查当前 DB 是否有 provider 数据，若没有则从已知旧路径导入
+  try {
+    const existingCount = (earlyDbRef.db.instance.prepare("SELECT COUNT(*) as c FROM providers").get() as { c: number }).c;
+    if (existingCount === 0) {
+      const oldPaths = [
+        path.join(app.getPath("appData"), "Electron", "icee.db"),
+        path.join(app.getPath("appData"), "@icee", "desktop", "icee.db"),
+      ];
+      for (const oldPath of oldPaths) {
+        if (fs.existsSync(oldPath) && oldPath !== dbPath) {
+          try {
+            // 用 ATTACH 从旧 DB 复制 providers 数据
+            earlyDbRef.db.instance.exec(`ATTACH DATABASE '${oldPath.replace(/'/g, "''")}' AS old_db`);
+            const oldCount = (earlyDbRef.db.instance.prepare("SELECT COUNT(*) as c FROM old_db.providers").get() as { c: number }).c;
+            if (oldCount > 0) {
+              earlyDbRef.db.instance.exec(`
+                INSERT OR IGNORE INTO providers (id, name, type, base_url, api_key, model, is_default, created_at, updated_at)
+                SELECT id, name, type, base_url, api_key, model, is_default, created_at, updated_at FROM old_db.providers
+              `);
+              console.log(`[ICEE DB] Migrated ${oldCount} provider(s) from old DB: ${oldPath}`);
+            }
+            earlyDbRef.db.instance.exec("DETACH DATABASE old_db");
+            if (oldCount > 0) break; // 迁移成功则不再尝试其他旧路径
+          } catch (e) {
+            console.warn(`[ICEE DB] Failed to migrate providers from ${oldPath}:`, e);
+            try { earlyDbRef.db.instance.exec("DETACH DATABASE old_db"); } catch { /* ignore */ }
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("[ICEE DB] Provider migration check failed:", e);
+  }
+
   return earlyDbRef.db;
+}
+
+/**
+ * 从 DB 查询当前有效的默认 Provider 行
+ * 优先返回 is_default=1 的记录，若不存在则 fallback 到第一条（避免唯一 provider 未设默认时失效）
+ */
+function getEffectiveDefaultProvider(db: { instance: any }): // eslint-disable-line @typescript-eslint/no-explicit-any
+  { id: string; name: string; type: string; base_url: string; api_key?: string; model?: string } | undefined {
+  const row = db.instance.prepare(
+    "SELECT id, name, type, base_url, api_key, model FROM providers WHERE is_default = 1 LIMIT 1"
+  ).get() as { id: string; name: string; type: string; base_url: string; api_key?: string; model?: string } | undefined;
+  if (row) return row;
+  // fallback：取任意第一条（按 created_at 升序，即最早创建的）
+  const fallback = db.instance.prepare(
+    "SELECT id, name, type, base_url, api_key, model FROM providers ORDER BY created_at ASC LIMIT 1"
+  ).get() as { id: string; name: string; type: string; base_url: string; api_key?: string; model?: string } | undefined;
+  if (fallback) {
+    console.log(`[ICEE DB] No default provider found, falling back to: ${fallback.name} (${fallback.type})`);
+    // 顺便修复：把这条记录设为默认，避免下次再 fallback
+    try {
+      db.instance.prepare("UPDATE providers SET is_default = 1 WHERE id = ?").run(fallback.id);
+    } catch { /* ignore */ }
+  }
+  return fallback;
 }
 
 /**
@@ -134,7 +201,17 @@ function registerProviderHandlers() {
         config.apiKey ?? null, config.model ?? null,
         config.isDefault ? 1 : 0, config.id,
       );
-      console.log(`[ICEE Main] save-provider OK: ${config.name} (${config.type})`);
+
+      // 如果 providers 表里只有一条记录（刚刚保存的），自动设为默认
+      // 避免"唯一的 provider 因未勾选 isDefault 而永远找不到"的问题
+      const total = (db.instance.prepare("SELECT COUNT(*) as c FROM providers").get() as { c: number }).c;
+      const defaultCount = (db.instance.prepare("SELECT COUNT(*) as c FROM providers WHERE is_default = 1").get() as { c: number }).c;
+      if (total === 1 && defaultCount === 0) {
+        db.instance.prepare("UPDATE providers SET is_default = 1 WHERE id = ?").run(config.id);
+        console.log(`[ICEE Main] Auto-set provider as default (only one provider): ${config.name}`);
+      }
+
+      console.log(`[ICEE Main] save-provider OK: ${config.name} (${config.type}) isDefault=${config.isDefault}`);
       return { ok: true };
     } catch (e) {
       console.error("[ICEE Main] save-provider error:", e);
@@ -176,21 +253,20 @@ function registerProviderHandlers() {
   ipcMain.handle("icee:reload-provider", async () => {
     try {
       const db = await ensureEarlyDb();
-      const newRow = db.instance.prepare(
-        "SELECT type, base_url, api_key, model FROM providers WHERE is_default = 1 LIMIT 1"
-      ).get() as { type: string; base_url: string; api_key?: string; model?: string } | undefined;
+      const newRow = getEffectiveDefaultProvider(db);
 
       if (!newRow) {
         globalProviderRef.win?.webContents.send("icee:ollama-status", { healthy: false, url: "no provider" });
         return { ok: true, message: "No default provider found" };
       }
 
-      // 更新 globalProviderRef 中的 model 和 url（即使 instance 尚未就绪也要更新，
+      // 更新 globalProviderRef 中的 model、url 和 type（即使 instance 尚未就绪也要更新，
       // 以便 initRuntime 启动时读取到正确的值）
       const newModel = newRow.model ?? (newRow.type === "ollama" ? "llama3.2" : "gpt-4o-mini");
       const newUrl = newRow.base_url;
       globalProviderRef.model = newModel;
       globalProviderRef.url = newUrl;
+      globalProviderRef.type = newRow.type;
 
       // 如果 runtime 已就绪（instance 存在），替换实例并做健康检查
       if (globalProviderRef.instance !== null) {
@@ -199,9 +275,10 @@ function registerProviderHandlers() {
 
         if (newRow.type === "openai-compatible" || newRow.type === "lm-studio" || newRow.type === "custom") {
           globalProviderRef.instance = new OpenAICompatibleProvider({
+            id: newRow.id,
+            name: newRow.name,
             baseUrl: newUrl,
             ...(newRow.api_key && { apiKey: newRow.api_key }),
-            ...(newRow.model && { defaultModel: newRow.model }),
           });
         } else {
           globalProviderRef.instance = new OllamaProvider({ baseUrl: newUrl });
@@ -215,7 +292,7 @@ function registerProviderHandlers() {
       }
 
       // runtime 还未就绪，只更新了 globalProviderRef 字段，initRuntime 启动时会使用新值
-      console.log(`[ICEE Main] reload-provider: runtime not ready yet, queued model=${newModel}`);
+      console.log(`[ICEE Main] reload-provider: runtime not ready yet, queued model=${newModel} type=${newRow.type}`);
       return { ok: true, healthy: false, url: newUrl };
     } catch (e) {
       console.error("[ICEE Main] reload-provider error:", e);
@@ -282,19 +359,23 @@ async function initRuntime(win: BrowserWindow) {
     let providerBaseUrlInDb: string | null = null;
     let providerApiKeyInDb: string | null = null;
     let providerModelInDb: string | null = null;
+    let providerIdInDb: string | null = null;
+    let providerNameInDb: string | null = null;
     try {
-      const defaultRow = iceeDb.instance.prepare(
-        "SELECT type, base_url, api_key, model FROM providers WHERE is_default = 1 LIMIT 1"
-      ).get() as { type: string; base_url: string; api_key?: string; model?: string } | undefined;
+      const defaultRow = getEffectiveDefaultProvider(iceeDb);
       if (defaultRow) {
+        providerIdInDb = defaultRow.id;
+        providerNameInDb = defaultRow.name;
         providerTypeInDb = defaultRow.type;
         providerBaseUrlInDb = defaultRow.base_url;
         providerApiKeyInDb = defaultRow.api_key ?? null;
         providerModelInDb = defaultRow.model ?? null;
-        console.log(`[ICEE Main] DB default provider: type=${providerTypeInDb} url=${providerBaseUrlInDb}`);
+        console.log(`[ICEE Main] DB default provider: id=${providerIdInDb} name=${providerNameInDb} type=${providerTypeInDb} url=${providerBaseUrlInDb} model=${providerModelInDb}`);
+      } else {
+        console.log("[ICEE Main] No providers in DB, using Ollama default");
       }
-    } catch {
-      console.log("[ICEE Main] providers table not ready yet, using Ollama default");
+    } catch (e) {
+      console.log("[ICEE Main] providers table not ready yet, using Ollama default:", e);
     }
 
     // ── 初始化 globalProviderRef.instance ─────────────────────
@@ -302,12 +383,14 @@ async function initRuntime(win: BrowserWindow) {
     // 优先使用 DB 读取值（更权威），globalProviderRef 字段会在下方被覆盖
     if (providerTypeInDb === "openai-compatible" || providerTypeInDb === "lm-studio" || providerTypeInDb === "custom") {
       globalProviderRef.instance = new OpenAICompatibleProvider({
+        id: providerIdInDb ?? "custom",
+        name: providerNameInDb ?? "Custom Provider",
         baseUrl: providerBaseUrlInDb ?? "https://api.openai.com/v1",
         ...(providerApiKeyInDb && { apiKey: providerApiKeyInDb }),
-        ...(providerModelInDb && { defaultModel: providerModelInDb }),
       });
       globalProviderRef.url = providerBaseUrlInDb ?? "https://api.openai.com/v1";
       globalProviderRef.model = providerModelInDb ?? "gpt-4o-mini";
+      globalProviderRef.type = providerTypeInDb;
     } else {
       const ollamaBase = (providerTypeInDb === "ollama" && providerBaseUrlInDb)
         ? providerBaseUrlInDb
@@ -315,6 +398,7 @@ async function initRuntime(win: BrowserWindow) {
       globalProviderRef.instance = new OllamaProvider({ baseUrl: ollamaBase });
       globalProviderRef.url = ollamaBase;
       globalProviderRef.model = providerModelInDb ?? "llama3.2";
+      globalProviderRef.type = "ollama";
     }
 
     console.log(`[ICEE Main] Using provider: type=${providerTypeInDb ?? "ollama(default)"} url=${globalProviderRef.url} model=${globalProviderRef.model}`);
@@ -360,23 +444,22 @@ async function initRuntime(win: BrowserWindow) {
 
         try {
           const liveDb = await ensureEarlyDb();
-          const liveRow = liveDb.instance.prepare(
-            "SELECT type, base_url, api_key, model FROM providers WHERE is_default = 1 LIMIT 1"
-          ).get() as { type: string; base_url: string; api_key?: string; model?: string } | undefined;
+          const liveRow = getEffectiveDefaultProvider(liveDb);
 
           if (liveRow) {
             liveModel = liveRow.model ?? (liveRow.type === "ollama" ? "llama3.2" : "gpt-4o-mini");
             const liveUrl = liveRow.base_url;
 
-            console.log(`[ICEE LLM] Live provider from DB: type=${liveRow.type} url=${liveUrl} model=${liveModel}`);
+            console.log(`[ICEE LLM] Live provider from DB: id=${liveRow.id} type=${liveRow.type} url=${liveUrl} model=${liveModel}`);
 
-            // 如果 URL 或类型与 globalProviderRef 不同，新建一次性 provider 实例
-            if (liveUrl !== globalProviderRef.url || liveRow.type !== (globalProviderRef.instance?.constructor?.name ?? "")) {
+            // 使用 globalProviderRef.type（DB 中的 type 字符串）来比较，避免 constructor.name 不匹配
+            if (liveUrl !== globalProviderRef.url || liveRow.type !== globalProviderRef.type) {
               if (liveRow.type === "openai-compatible" || liveRow.type === "lm-studio" || liveRow.type === "custom") {
                 liveProvider = new OpenAICompatibleProvider({
+                  id: liveRow.id,
+                  name: liveRow.name,
                   baseUrl: liveUrl,
                   ...(liveRow.api_key && { apiKey: liveRow.api_key }),
-                  ...(liveRow.model && { defaultModel: liveRow.model }),
                 });
               } else {
                 liveProvider = new OllamaProvider({ baseUrl: liveUrl });
@@ -385,10 +468,13 @@ async function initRuntime(win: BrowserWindow) {
               globalProviderRef.instance = liveProvider;
               globalProviderRef.model = liveModel;
               globalProviderRef.url = liveUrl;
-              console.log(`[ICEE LLM] Provider instance updated to ${liveRow.type} @ ${liveUrl}`);
+              globalProviderRef.type = liveRow.type;
+              console.log(`[ICEE LLM] Provider instance updated to ${liveRow.type} @ ${liveUrl} model=${liveModel}`);
+            } else {
+              console.log(`[ICEE LLM] Provider unchanged (${liveRow.type} @ ${liveUrl}), reusing cached instance`);
             }
           } else {
-            console.log(`[ICEE LLM] No default provider in DB, using cached: url=${globalProviderRef.url} model=${liveModel}`);
+            console.log(`[ICEE LLM] No default provider in DB, using cached: type=${globalProviderRef.type} url=${globalProviderRef.url} model=${liveModel}`);
           }
         } catch (e) {
           console.warn("[ICEE LLM] Failed to read live provider from DB, using cached:", e);
@@ -776,6 +862,12 @@ function createWindow() {
 
   return win;
 }
+
+// ── 在 whenReady 之前强制设置 userData 路径 ──────
+// Electron 在不同运行模式下 userData 路径不一致（开发模式为 Roaming\Electron，
+// 生产打包后可能为 Roaming\@icee\desktop 等），导致每次找不到用户保存的配置。
+// 统一指定为 Roaming\ICeeAgent，无论开发/生产模式都使用同一个数据库。
+app.setPath("userData", path.join(app.getPath("appData"), "ICeeAgent"));
 
 // ── Electron 生命周期 ──────────────────────────
 app.whenReady().then(() => {

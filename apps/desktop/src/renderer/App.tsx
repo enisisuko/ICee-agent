@@ -127,6 +127,10 @@ export function App() {
   // 初始为空数组，Electron 下通过 IPC 拉取真实数据；浏览器 dev 模式 fallback mockProviders
   const [providers, setProviders] = useState<ProviderConfig[]>([]);
 
+  // ── 选中的模型（输入框右侧下拉选择器的状态）────────────────────────
+  // 格式为 provider 的 model 字段字符串，如 "zai-org/glm-4.7-flash"
+  const [selectedModel, setSelectedModel] = useState<string | undefined>(undefined);
+
   // ── IPC 桥接（Electron 环境下激活，浏览器 dev 静默跳过）────────
   const { isElectron, runGraph, cancelRun } = useIceeRuntime({
     // 实时追加 TraceLog + 更新 subagents 状态 + 更新 executionEdges 到当前会话
@@ -435,9 +439,9 @@ export function App() {
     setActiveSessionId(sessionId);
   }, []);
 
-  /** 用户提交新任务（含附件列表） */
+  /** 用户提交新任务（含附件列表和可选模型覆盖） */
   const handleTaskSubmit = useCallback(
-    async (task: string, attachments: AttachmentItem[] = []) => {
+    async (task: string, attachments: AttachmentItem[] = [], modelOverride?: string) => {
       const sid = activeSessionId; // 闭包捕获，防止切换会话后污染
       const timestamp = new Date().toLocaleTimeString("en-GB", { hour12: false });
       // 任务标题：优先用文字，若纯图片则提示
@@ -462,8 +466,9 @@ export function App() {
             version: "1.0.0",
             cache: "no-cache",
             config: {
-              // model 字段不在这里硬编码；LLMNodeExecutor 会 fallback 到主进程 globalProviderRef.model
-              // 这样切换 Provider 后无需重新提交任务，model 立即生效
+              // modelOverride: 用户在输入框右侧手动选择的模型；未选时为 undefined，
+              // LLMNodeExecutor 会 fallback 到主进程 globalProviderRef.model（DB 中的默认 provider）
+              ...(modelOverride && { model: modelOverride }),
               temperature: 0.7,
               maxTokens: 512,
               systemPrompt: "You are a helpful, concise assistant. Answer in the same language as the user.",
@@ -1054,6 +1059,9 @@ export function App() {
                     onStop={handleStop}
                     onNodeRevert={handleNodeRevert}
                     onNodeRerun={handleNodeRerun}
+                    providers={providers}
+                    selectedModel={selectedModel}
+                    onModelChange={setSelectedModel}
                   />
                 </motion.div>
               </AnimatePresence>

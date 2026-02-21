@@ -1,15 +1,21 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import type { OrchestratorData, AttachmentItem } from "../../types/ui.js";
+import type { OrchestratorData, AttachmentItem, ProviderConfig } from "../../types/ui.js";
 import { useLanguage } from "../../i18n/LanguageContext.js";
 
 interface TaskInputBarProps {
   /** 当前 Orchestrator 状态，用于判断是否显示输入框 */
   orchestratorState: OrchestratorData["state"];
-  /** 用户提交新任务的回调（含附件列表） */
-  onSubmit: (task: string, attachments: AttachmentItem[]) => void;
+  /** 用户提交新任务的回调（含附件列表和选中模型） */
+  onSubmit: (task: string, attachments: AttachmentItem[], model?: string) => void;
   /** 停止当前 Run 的回调 */
   onStop?: () => void;
+  /** 可用的 Provider 列表（用于模型选择下拉） */
+  providers?: ProviderConfig[];
+  /** 当前选中的模型（格式: "providerId::modelName" 或 "modelName"） */
+  selectedModel?: string;
+  /** 模型变更回调 */
+  onModelChange?: (model: string) => void;
 }
 
 /**
@@ -27,12 +33,27 @@ interface TaskInputBarProps {
  *   running               → 蓝色状态条 + Stop 按钮
  *   paused                → 黄色状态条 + Cancel 按钮
  */
-export function TaskInputBar({ orchestratorState, onSubmit, onStop }: TaskInputBarProps) {
+export function TaskInputBar({ orchestratorState, onSubmit, onStop, providers = [], selectedModel, onModelChange }: TaskInputBarProps) {
   const { t } = useLanguage();
   const [inputValue, setInputValue] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
+  const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
+
+  // 从 providers 列表构建模型选项（每个 provider 的 model 字段作为选项）
+  const modelOptions: { label: string; value: string; providerName: string }[] = providers
+    .filter(p => p.model)
+    .map(p => ({
+      label: p.model!,
+      value: p.model!,
+      providerName: p.name,
+    }));
+
+  // 当前显示的模型名（截断显示）
+  const currentModelLabel = selectedModel
+    ? (modelOptions.find(o => o.value === selectedModel)?.label ?? selectedModel)
+    : (modelOptions[0]?.label ?? "Default");
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -149,9 +170,12 @@ export function TaskInputBar({ orchestratorState, onSubmit, onStop }: TaskInputB
   const handleSubmit = () => {
     const trimmed = inputValue.trim();
     if (!trimmed && attachments.length === 0) return;
-    onSubmit(trimmed, attachments);
+    // 传递当前选中模型（如果没有手动选择，用 modelOptions 第一个）
+    const model = selectedModel ?? modelOptions[0]?.value;
+    onSubmit(trimmed, attachments, model);
     setInputValue("");
     setAttachments([]);
+    setModelDropdownOpen(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -355,26 +379,130 @@ export function TaskInputBar({ orchestratorState, onSubmit, onStop }: TaskInputB
                     spellCheck={false}
                   />
 
-                  {/* 发送按钮 */}
-                  <motion.button
-                    onClick={handleSubmit}
-                    disabled={!hasContent}
-                    className="flex-shrink-0 px-3 py-1 rounded text-xs font-medium mb-0.5"
-                    animate={{
-                      opacity: hasContent ? 1 : 0.30,
-                      background: hasContent
-                        ? "rgba(96,165,250,0.18)"
-                        : "transparent",
-                    }}
-                    transition={{ duration: 0.12 }}
-                    style={{
-                      border: "1px solid rgba(96,165,250,0.20)",
-                      color: "rgba(96,165,250,0.80)",
-                    }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    {t.taskInput.run}
-                  </motion.button>
+                  {/* 模型选择器 + 发送按钮 组合 */}
+                  <div className="flex items-center gap-1 flex-shrink-0 mb-0.5">
+                    {/* 模型选择下拉 */}
+                    {modelOptions.length > 0 && (
+                      <div className="relative">
+                        <motion.button
+                          onClick={() => setModelDropdownOpen(prev => !prev)}
+                          className="flex items-center gap-1 px-2 py-1 rounded text-2xs"
+                          style={{
+                            background: modelDropdownOpen ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.03)",
+                            border: "1px solid rgba(255,255,255,0.10)",
+                            color: "rgba(255,255,255,0.45)",
+                            maxWidth: "110px",
+                          }}
+                          whileHover={{ background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.65)" }}
+                          transition={{ duration: 0.10 }}
+                          title={`当前模型: ${currentModelLabel}`}
+                        >
+                          {/* 小圆点指示器 */}
+                          <span
+                            className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                            style={{ background: "rgba(96,165,250,0.60)" }}
+                          />
+                          <span className="truncate font-mono" style={{ fontSize: "10px", maxWidth: "80px" }}>
+                            {currentModelLabel}
+                          </span>
+                          {/* 下拉箭头 */}
+                          <svg
+                            width="8" height="8" viewBox="0 0 8 8" fill="currentColor"
+                            style={{ flexShrink: 0, opacity: 0.5, transform: modelDropdownOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}
+                          >
+                            <path d="M1 2.5L4 5.5L7 2.5" stroke="currentColor" strokeWidth="1.2" fill="none" strokeLinecap="round"/>
+                          </svg>
+                        </motion.button>
+
+                        {/* 下拉菜单 */}
+                        <AnimatePresence>
+                          {modelDropdownOpen && (
+                            <motion.div
+                              className="absolute bottom-full mb-1 right-0 rounded-lg overflow-hidden"
+                              style={{
+                                background: "rgba(13,17,23,0.98)",
+                                border: "1px solid rgba(255,255,255,0.10)",
+                                minWidth: "180px",
+                                zIndex: 100,
+                                boxShadow: "0 8px 32px rgba(0,0,0,0.60)",
+                              }}
+                              initial={{ opacity: 0, y: 4, scale: 0.96 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: 4, scale: 0.96 }}
+                              transition={{ duration: 0.12 }}
+                            >
+                              <div className="px-3 py-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                                <p className="text-2xs" style={{ color: "rgba(255,255,255,0.35)" }}>选择模型</p>
+                              </div>
+                              <div className="py-1">
+                                {modelOptions.map(opt => (
+                                  <button
+                                    key={opt.value}
+                                    className="w-full text-left px-3 py-2 flex items-center gap-2"
+                                    style={{
+                                      background: (selectedModel ?? modelOptions[0]?.value) === opt.value
+                                        ? "rgba(96,165,250,0.10)"
+                                        : "transparent",
+                                    }}
+                                    onClick={() => {
+                                      onModelChange?.(opt.value);
+                                      setModelDropdownOpen(false);
+                                    }}
+                                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; }}
+                                    onMouseLeave={e => {
+                                      (e.currentTarget as HTMLElement).style.background =
+                                        (selectedModel ?? modelOptions[0]?.value) === opt.value
+                                          ? "rgba(96,165,250,0.10)"
+                                          : "transparent";
+                                    }}
+                                  >
+                                    {/* 选中指示器 */}
+                                    <span
+                                      className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                                      style={{
+                                        background: (selectedModel ?? modelOptions[0]?.value) === opt.value
+                                          ? "rgba(96,165,250,0.80)"
+                                          : "rgba(255,255,255,0.15)",
+                                      }}
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs truncate font-mono" style={{ color: "rgba(255,255,255,0.75)" }}>
+                                        {opt.label}
+                                      </p>
+                                      <p className="text-2xs truncate" style={{ color: "rgba(255,255,255,0.30)" }}>
+                                        {opt.providerName}
+                                      </p>
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    )}
+
+                    {/* 发送按钮 */}
+                    <motion.button
+                      onClick={handleSubmit}
+                      disabled={!hasContent}
+                      className="px-3 py-1 rounded text-xs font-medium"
+                      animate={{
+                        opacity: hasContent ? 1 : 0.30,
+                        background: hasContent
+                          ? "rgba(96,165,250,0.18)"
+                          : "transparent",
+                      }}
+                      transition={{ duration: 0.12 }}
+                      style={{
+                        border: "1px solid rgba(96,165,250,0.20)",
+                        color: "rgba(96,165,250,0.80)",
+                      }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      {t.taskInput.run}
+                    </motion.button>
+                  </div>
                 </div>
 
                 {/* 底部工具栏 */}

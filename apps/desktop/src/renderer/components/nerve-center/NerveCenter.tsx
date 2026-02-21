@@ -16,6 +16,7 @@ import type {
   AttachmentItem,
   ExecutionEdge,
   ExecutionRound,
+  ProviderConfig,
 } from "../../types/ui.js";
 
 interface NerveCenterProps {
@@ -33,14 +34,20 @@ interface NerveCenterProps {
    * 每轮垂直续接渲染，历史轮降低亮度
    */
   rounds?: ExecutionRound[];
-  /** 用户提交任务回调（含附件列表） */
-  onTaskSubmit?: (task: string, attachments: AttachmentItem[]) => void;
+  /** 用户提交任务回调（含附件列表和选中模型） */
+  onTaskSubmit?: (task: string, attachments: AttachmentItem[], model?: string) => void;
   /** 停止当前 Run 的回调 */
   onStop?: () => void;
   /** 节点步骤撤回回调（从 App.tsx 传入） */
   onNodeRevert?: (nodeId: string, stepId: string) => void;
   /** 节点重新生成回调（从 App.tsx 传入） */
   onNodeRerun?: (nodeId: string, stepId: string, editedPrompt: string) => void;
+  /** 可用的 Provider 列表（用于模型选择下拉） */
+  providers?: ProviderConfig[];
+  /** 当前选中的模型 */
+  selectedModel?: string;
+  /** 模型变更回调 */
+  onModelChange?: (model: string) => void;
 }
 
 /**
@@ -142,6 +149,9 @@ export function NerveCenter({
   onStop,
   onNodeRevert,
   onNodeRerun,
+  providers = [],
+  selectedModel,
+  onModelChange,
 }: NerveCenterProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -210,6 +220,9 @@ export function NerveCenter({
           orchestratorState={orchestrator.state}
           onSubmit={onTaskSubmit ?? (() => {})}
           {...(onStop !== undefined && { onStop })}
+          providers={providers}
+          selectedModel={selectedModel}
+          onModelChange={onModelChange}
         />
         {/* AI 回复卡片 — Run 完成后淡入（显示最新轮的回复） */}
         <AiOutputCard output={latestAiOutput} />
