@@ -126,6 +126,22 @@ function registerProviderHandlers() {
     }
   });
 
+  // ── IPC: list-runs（早期注册版本，runtime 未就绪时返回空数组）─────
+  // renderer 在启动时立即调用此 IPC，所以必须提前注册；
+  // initRuntime 就绪后会重新 handle（ipcMain.removeHandler + re-register）以返回真实数据
+  ipcMain.handle("icee:list-runs", async () => {
+    try {
+      // 如果 earlyDb 已就绪则尝试从 DB 读取 run 历史
+      const db = await ensureEarlyDb();
+      const RunRepository = (await import("@icee/db")).RunRepository;
+      const runRepo = new RunRepository(db.instance);
+      return runRepo.findAll(20);
+    } catch {
+      // runtime 尚未就绪或 DB 尚未初始化，返回空数组
+      return [];
+    }
+  });
+
   // ── IPC: reload-provider ──────────────────────────────────────
   // 前端保存 Provider 后调用，主进程重新读取默认 Provider 并重建实例
   // globalProviderRef 由 initRuntime 填充；若 runtime 尚未就绪，跳过实例替换只返回 DB 状态
@@ -582,7 +598,9 @@ async function initRuntime(win: BrowserWindow) {
       }
     );
 
-    // ── IPC: list-runs ─────────────────────────
+    // ── IPC: list-runs（runtime 就绪后覆盖早期注册的空实现）──────
+    // 移除早期 registerProviderHandlers 注册的空实现，替换为真实数据版本
+    ipcMain.removeHandler("icee:list-runs");
     ipcMain.handle("icee:list-runs", async () => {
       const runs = runRepo.findAll(20);
       return runs;
