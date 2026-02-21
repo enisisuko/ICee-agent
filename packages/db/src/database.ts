@@ -51,7 +51,30 @@ export class IceeDatabase {
       ).run("0.1.0", new Date().toISOString(), "Initial ICEE schema");
     }
 
+    // 迁移：为已有数据库补充 providers 表缺少的列（ALTER TABLE 在列已存在时会抛错，静默忽略即可）
+    this.migrateProviders();
+
     console.log("[IceeDatabase] Database initialized successfully");
+  }
+
+  /**
+   * providers 表列迁移 (v0.1.1)
+   * 早期 schema 缺少 api_key 和 model 列，补充后 save-provider handler 才能正常工作
+   * ALTER TABLE ADD COLUMN 在列已存在时会报错，使用 try/catch 忽略
+   */
+  private migrateProviders(): void {
+    const migrations = [
+      { col: "api_key", sql: "ALTER TABLE providers ADD COLUMN api_key TEXT" },
+      { col: "model",   sql: "ALTER TABLE providers ADD COLUMN model TEXT" },
+    ];
+    for (const m of migrations) {
+      try {
+        this.db.exec(m.sql);
+        console.log(`[IceeDatabase] Migration: added providers.${m.col}`);
+      } catch {
+        // 列已存在（SQLite 错误码 1/SQLITE_ERROR "duplicate column name"），静默跳过
+      }
+    }
   }
 
   /** 获取原始 db 实例 (供 Repository 使用) */

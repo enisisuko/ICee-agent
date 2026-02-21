@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { OrchestratorNode } from "./OrchestratorNode.js";
 import { SubagentCard } from "./SubagentCard.js";
@@ -7,6 +7,7 @@ import { ResourceSubstrate } from "./ResourceSubstrate.js";
 import { TaskInputBar } from "./TaskInputBar.js";
 import { AiOutputCard } from "./AiOutputCard.js";
 import { useLayoutEngine, toTopLeft, getPipeEndpoints } from "../../hooks/useLayoutEngine.js";
+import { useDraggableCanvas } from "../../hooks/useDraggableCanvas.js";
 import type {
   OrchestratorData,
   SubagentNode,
@@ -14,20 +15,24 @@ import type {
   SkillData,
   AttachmentItem,
   ExecutionEdge,
+  ExecutionRound,
 } from "../../types/ui.js";
 
 interface NerveCenterProps {
   orchestrator: OrchestratorData;
+  /** 当前最新轮节点列表（向下兼容，优先使用 rounds） */
   subagents: SubagentNode[];
   mcpTools: McpToolData[];
   skills: SkillData[];
-  /** AI 最终回复文本（Run 完成后由 App.tsx 传入） */
+  /** AI 最终回复文本（向下兼容，最新轮的回复） */
   aiOutput?: string;
-  /**
-   * 当前 Run 的有向执行边列表（由 App.tsx 从 graphJson 解析后传入）
-   * 为空时 fallback 到旧版 subagents 静态视图
-   */
+  /** 当前最新轮执行边（向下兼容，优先使用 rounds） */
   executionEdges?: ExecutionEdge[];
+  /**
+   * 多轮对话执行图列表（从 session.rounds 传入）
+   * 每轮垂直续接渲染，历史轮降低亮度
+   */
+  rounds?: ExecutionRound[];
   /** 用户提交任务回调（含附件列表） */
   onTaskSubmit?: (task: string, attachments: AttachmentItem[]) => void;
   /** 停止当前 Run 的回调 */
@@ -132,6 +137,7 @@ export function NerveCenter({
   skills,
   aiOutput,
   executionEdges = [],
+  rounds = [],
   onTaskSubmit,
   onStop,
   onNodeRevert,
@@ -139,26 +145,59 @@ export function NerveCenter({
 }: NerveCenterProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // ── 画布拖拽 ─────────────────────────────────────────────────
+  const { offset, isDragging, handlers: dragHandlers, reset: resetCanvas } = useDraggableCanvas();
+
+  // 切换会话或新建会话时，重置画布视角
+  const prevRoundsLen = useRef(rounds.length);
+  useEffect(() => {
+    if (rounds.length === 0 && prevRoundsLen.current > 0) {
+      resetCanvas();
+    }
+    prevRoundsLen.current = rounds.length;
+  }, [rounds.length, resetCanvas]);
+
   // 画布区域宽度（用于布局计算，估算值，精度足够）
   const containerWidth = 600;
 
-  // ── 布局引擎：从 edges 计算节点坐标 ──────────────────────────
-  const { positions, canvasHeight } = useLayoutEngine(executionEdges, containerWidth);
+  // ── 多轮模式：rounds 有数据时优先使用 ────────────────────────
+  const useRoundsMode = rounds.length > 0;
 
-  // ── 是否使用动态图模式 ────────────────────────────────────────
-  // 有 executionEdges 时优先使用动态图；否则 fallback 到旧版静态卡片行
-  const useDynamicGraph = executionEdges.length > 0;
+  // ── 单轮兼容模式：只用 executionEdges（旧逻辑） ──────────────
+  const { positions, canvasHeight } = useLayoutEngine(
+    useRoundsMode ? [] : executionEdges,
+    containerWidth,
+  );
 
-  // ── 动态图模式：从 edges 派生可见节点 ────────────────────────
+  // ── 是否使用动态图模式（单轮） ───────────────────────────────
+  const useDynamicGraph = !useRoundsMode && executionEdges.length > 0;
+
+  // ── 动态图模式：从 edges 派生可见节点（单轮兼容） ────────────
   const dynamicNodes = useDynamicGraph ? edgesToNodes(executionEdges, subagents) : [];
 
   // ── 静态模式兼容：subagents 直接渲染（旧逻辑） ───────────────
-  // 注：新建会话 subagents=[]，不再 fallback 到 mockSubagents，NerveCenter 显示空画布引导
   const staticSubagents = useDynamicGraph ? [] : subagents;
 
   // ── 是否显示空画布引导提示 ───────────────────────────────────
-  // 新建会话：没有 executionEdges 且没有 subagents 时显示
-  const isEmptyCanvas = !useDynamicGraph && staticSubagents.length === 0;
+  const isEmptyCanvas = !useRoundsMode && !useDynamicGraph && staticSubagents.length === 0;
+
+  // ── 多轮模式：计算每轮的 yOffset（累积高度） ──────────────────
+  // 预先为每一轮单独调用布局引擎（不用 Hook，直接调用工具函数）
+  // 这里用 useMemo 来缓存所有轮次的布局结果
+  const roundLayouts = useRoundsMode
+    ? computeRoundLayouts(rounds, containerWidth)
+    : [];
+
+  // 多轮模式下的总画布高度（最后一轮的底部 + 下边距）
+  const totalRoundsHeight = roundLayouts.length > 0
+    ? (roundLayouts[roundLayouts.length - 1]?.yOffset ?? 0) +
+      (roundLayouts[roundLayouts.length - 1]?.canvasHeight ?? 200) + 60
+    : 200;
+
+  // 最新轮的 AI 回复（取 rounds 最后一项）
+  const latestAiOutput = useRoundsMode
+    ? rounds[rounds.length - 1]?.aiOutput ?? aiOutput
+    : aiOutput;
 
   return (
     <div className="flex flex-col items-center justify-between h-full px-8 py-6 gap-4 relative">
@@ -172,199 +211,309 @@ export function NerveCenter({
           onSubmit={onTaskSubmit ?? (() => {})}
           {...(onStop !== undefined && { onStop })}
         />
-        {/* AI 回复卡片 — Run 完成后淡入 */}
-        <AiOutputCard output={aiOutput} />
+        {/* AI 回复卡片 — Run 完成后淡入（显示最新轮的回复） */}
+        <AiOutputCard output={latestAiOutput} />
       </div>
 
-      {/* ── Middle: Execution Engine ── */}
+      {/* ── Middle: Execution Engine（可拖拽画布） ── */}
+      {/* 外层：溢出隐藏 + 拖拽事件绑定 */}
       <div
-        className="flex-1 w-full relative"
         ref={containerRef}
-        style={{ minHeight: useDynamicGraph ? Math.max(canvasHeight, 200) : isEmptyCanvas ? 200 : 160 }}
+        className="flex-1 w-full relative overflow-hidden"
+        style={{
+          minHeight: useRoundsMode ? Math.max(totalRoundsHeight, 200)
+            : useDynamicGraph ? Math.max(canvasHeight, 200)
+            : isEmptyCanvas ? 200 : 160,
+          cursor: isDragging ? "grabbing" : isEmptyCanvas ? "default" : "grab",
+          userSelect: "none",
+        }}
+        {...dragHandlers}
       >
-        {/* ════════════════════════════════
-            动态图模式（executionEdges 驱动）
-            ════════════════════════════════ */}
-        {useDynamicGraph && (
-          <>
-            {/* SVG 覆盖层：DataPipe 连线（绝对定位覆盖整个执行区域） */}
-            <svg
-              className="absolute inset-0 pointer-events-none"
-              style={{ width: "100%", height: "100%", overflow: "visible" }}
-            >
+        {/* 内层：跟随 offset 平移的画布内容 */}
+        <div
+          style={{
+            transform: `translate(${offset.x}px, ${offset.y}px)`,
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            // 高度撑开到所有内容的高度（让 SVG 连线不截断）
+            minHeight: useRoundsMode ? totalRoundsHeight : canvasHeight,
+          }}
+        >
+
+          {/* ════════════════════════════════
+              多轮对话模式（rounds 驱动）
+              每轮垂直续接，历史轮半透明
+              ════════════════════════════════ */}
+          {useRoundsMode && (
+            <>
+              {/* 全局 SVG：所有轮次的连线都绘制在同一个 SVG 内 */}
+              <svg
+                className="absolute inset-0 pointer-events-none"
+                style={{ width: "100%", height: totalRoundsHeight, overflow: "visible" }}
+              >
+                <AnimatePresence>
+                  {roundLayouts.map(({ round, positions: rPos, yOffset: rY }, ri) => {
+                    const isLatest = ri === roundLayouts.length - 1;
+                    return round.executionEdges.map((edge) => {
+                      const srcPos = rPos.get(edge.source);
+                      const tgtPos = rPos.get(edge.target);
+                      if (!srcPos || !tgtPos) return null;
+                      const { fromPt, toPt } = getPipeEndpoints(srcPos, tgtPos);
+                      return (
+                        <DataPipeSvgPath
+                          key={`r${ri}-${edge.id}`}
+                          from={fromPt}
+                          to={toPt}
+                          state={isLatest ? edge.state : "completed"}
+                          edgeId={`r${ri}-${edge.id}`}
+                          opacity={isLatest ? 1 : 0.35}
+                        />
+                      );
+                    });
+                  })}
+                </AnimatePresence>
+              </svg>
+
+              {/* 所有轮次的节点卡片 */}
+              {roundLayouts.map(({ round, positions: rPos, yOffset: rY }, ri) => {
+                const isLatest = ri === roundLayouts.length - 1;
+                const roundNodes = edgesToNodes(round.executionEdges, round.subagents);
+                return (
+                  <div key={`round-${ri}`}>
+                    {/* 轮次分隔线（第 2 轮起才显示） */}
+                    {ri > 0 && (
+                      <div
+                        className="absolute w-full flex items-center gap-3"
+                        style={{ top: rY - 28, left: 0, pointerEvents: "none" }}
+                      >
+                        <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.06)" }} />
+                        <span className="text-xs px-2 py-0.5 rounded" style={{
+                          color: "rgba(255,255,255,0.25)",
+                          background: "rgba(255,255,255,0.04)",
+                          border: "1px solid rgba(255,255,255,0.06)",
+                          fontSize: "10px",
+                        }}>
+                          Round {round.roundIndex} · {round.task.slice(0, 30)}{round.task.length > 30 ? "…" : ""}
+                        </span>
+                        <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.06)" }} />
+                      </div>
+                    )}
+
+                    {/* 节点卡片 */}
+                    <AnimatePresence>
+                      {roundNodes.map((node) => {
+                        const pos = rPos.get(node.id);
+                        if (!pos) return null;
+                        const { left, top } = toTopLeft(pos);
+                        return (
+                          <motion.div
+                            key={`r${ri}-${node.id}`}
+                            className="absolute"
+                            style={{
+                              left,
+                              top,
+                              width: 192,
+                              zIndex: 10,
+                              // 历史轮降低亮度，最新轮正常
+                              opacity: isLatest ? 1 : 0.45,
+                              filter: isLatest ? "none" : "saturate(0.4)",
+                            }}
+                            initial={{ opacity: 0, scale: 0.85, y: 8 }}
+                            animate={{ opacity: isLatest ? 1 : 0.45, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.85 }}
+                            transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onDoubleClick={(e) => e.stopPropagation()}
+                          >
+                            <SubagentCard
+                              node={node}
+                              {...(onNodeRevert !== undefined && { onRevert: onNodeRevert })}
+                              {...(onNodeRerun !== undefined && { onRerun: onNodeRerun })}
+                            />
+                          </motion.div>
+                        );
+                      })}
+                    </AnimatePresence>
+                  </div>
+                );
+              })}
+            </>
+          )}
+
+          {/* ════════════════════════════════
+              单轮动态图模式（executionEdges 驱动，兼容旧版）
+              ════════════════════════════════ */}
+          {useDynamicGraph && (
+            <>
+              {/* SVG 覆盖层：DataPipe 连线 */}
+              <svg
+                className="absolute inset-0 pointer-events-none"
+                style={{ width: "100%", height: "100%", overflow: "visible" }}
+              >
+                <AnimatePresence>
+                  {executionEdges.map((edge) => {
+                    const srcPos = positions.get(edge.source);
+                    const tgtPos = positions.get(edge.target);
+                    if (!srcPos || !tgtPos) return null;
+                    const { fromPt, toPt } = getPipeEndpoints(srcPos, tgtPos);
+                    return (
+                      <DataPipeSvgPath
+                        key={edge.id}
+                        from={fromPt}
+                        to={toPt}
+                        state={edge.state}
+                        edgeId={edge.id}
+                      />
+                    );
+                  })}
+                </AnimatePresence>
+              </svg>
+
+              {/* 节点卡片（absolute 定位到计算坐标） */}
               <AnimatePresence>
-                {executionEdges.map((edge) => {
-                  const srcPos = positions.get(edge.source);
-                  const tgtPos = positions.get(edge.target);
-                  if (!srcPos || !tgtPos) return null;
-
-                  const { fromPt, toPt } = getPipeEndpoints(srcPos, tgtPos);
-
+                {dynamicNodes.map((node) => {
+                  const pos = positions.get(node.id);
+                  if (!pos) return null;
+                  const { left, top } = toTopLeft(pos);
                   return (
-                    // 用 foreignObject 包裹 DataPipe 的独立 SVG（DataPipe 自带 svg 标签）
-                    // 这里直接渲染嵌套路径而非使用外层 foreignObject
-                    <DataPipeSvgPath
-                      key={edge.id}
-                      from={fromPt}
-                      to={toPt}
-                      state={edge.state}
-                      edgeId={edge.id}
-                    />
+                    <motion.div
+                      key={node.id}
+                      className="absolute"
+                      style={{ left, top, width: 192, zIndex: 10 }}
+                      initial={{ opacity: 0, scale: 0.85, y: 8 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.85 }}
+                      transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onDoubleClick={(e) => e.stopPropagation()}
+                    >
+                      <SubagentCard
+                        node={node}
+                        {...(onNodeRevert !== undefined && { onRevert: onNodeRevert })}
+                        {...(onNodeRerun !== undefined && { onRerun: onNodeRerun })}
+                      />
+                    </motion.div>
                   );
                 })}
               </AnimatePresence>
-            </svg>
 
-            {/* 节点卡片（absolute 定位到计算坐标） */}
-            <AnimatePresence>
-              {dynamicNodes.map((node) => {
-                const pos = positions.get(node.id);
-                if (!pos) return null;
-                const { left, top } = toTopLeft(pos);
+              {/* 空白提示：Run 开始后等待第一个 step */}
+              {dynamicNodes.length === 0 && orchestrator.state === "running" && (
+                <motion.div
+                  className="absolute inset-0 flex items-center justify-center"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.5 }}
+                >
+                  <div className="flex flex-col items-center gap-3">
+                    <motion.div
+                      className="w-2 h-2 rounded-full"
+                      style={{ background: "rgba(96,165,250,0.6)" }}
+                      animate={{ scale: [1, 1.5, 1], opacity: [0.4, 1, 0.4] }}
+                      transition={{ duration: 1.5, repeat: Infinity }}
+                    />
+                    <span className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>
+                      Waiting for execution steps...
+                    </span>
+                  </div>
+                </motion.div>
+              )}
 
-                return (
-                  <motion.div
-                    key={node.id}
-                    className="absolute"
-                    style={{ left, top, width: 192, zIndex: 10 }}
-                    initial={{ opacity: 0, scale: 0.85, y: 8 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.85 }}
-                    transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
-                  >
+              {/* 空白提示：Run 未开始 */}
+              {dynamicNodes.length === 0 && orchestrator.state !== "running" && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-xs" style={{ color: "rgba(255,255,255,0.12)" }}>
+                    Execution graph will appear when task runs
+                  </span>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ════════════════════════════════
+              空画布引导提示（新建会话无任务时）
+              ════════════════════════════════ */}
+          {isEmptyCanvas && (
+            <motion.div
+              className="absolute inset-0 flex flex-col items-center justify-center gap-4"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+            >
+              <motion.div
+                className="w-3 h-3 rounded-full"
+                style={{ background: "rgba(96,165,250,0.25)", boxShadow: "0 0 12px rgba(96,165,250,0.2)" }}
+                animate={{ scale: [1, 1.4, 1], opacity: [0.3, 0.7, 0.3] }}
+                transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+              />
+              <p className="text-sm text-center" style={{ color: "rgba(255,255,255,0.22)", maxWidth: 240, lineHeight: 1.7 }}>
+                Submit a task above to begin
+              </p>
+              <p className="text-xs text-center" style={{ color: "rgba(255,255,255,0.10)", maxWidth: 260 }}>
+                The execution graph will grow step-by-step as the agent works
+              </p>
+            </motion.div>
+          )}
+
+          {/* ════════════════════════════════
+              静态兼容模式（无 executionEdges）
+              旧版卡片行 + SVG 直线连接
+              ════════════════════════════════ */}
+          {!useRoundsMode && !useDynamicGraph && staticSubagents.length > 0 && (
+            <>
+              <svg
+                className="absolute inset-0 w-full h-full pointer-events-none"
+                style={{ overflow: "visible" }}
+              >
+                {staticSubagents.map((agent, i) => {
+                  const total = staticSubagents.length;
+                  const cardWidth = 192 + 16;
+                  const targetXOffset = (i - (total - 1) / 2) * cardWidth;
+                  return (
+                    <g key={agent.id}>
+                      <line
+                        x1="50%" y1="0"
+                        x2={`calc(50% + ${targetXOffset}px)`} y2="100%"
+                        stroke={
+                          agent.state.status === "running" ? "rgba(96,165,250,0.15)"
+                            : agent.state.status === "autofix" ? "rgba(251,191,36,0.15)"
+                            : agent.state.status === "success" ? "rgba(52,211,153,0.10)"
+                            : "rgba(255,255,255,0.04)"
+                        }
+                        strokeWidth="1"
+                        strokeDasharray={agent.state.status === "idle" ? "4 8" : "none"}
+                      />
+                    </g>
+                  );
+                })}
+              </svg>
+              <div className="flex items-center gap-4 flex-wrap justify-center relative z-10 h-full">
+                {staticSubagents.map((agent) => (
+                  <div key={agent.id} onMouseDown={(e) => e.stopPropagation()}>
                     <SubagentCard
-                      node={node}
+                      node={agent}
                       {...(onNodeRevert !== undefined && { onRevert: onNodeRevert })}
                       {...(onNodeRerun !== undefined && { onRerun: onNodeRerun })}
                     />
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
-
-            {/* 空白提示：Run 开始后等待第一个 step */}
-            {dynamicNodes.length === 0 && orchestrator.state === "running" && (
-              <motion.div
-                className="absolute inset-0 flex items-center justify-center"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.5 }}
-              >
-                <div className="flex flex-col items-center gap-3">
-                  <motion.div
-                    className="w-2 h-2 rounded-full"
-                    style={{ background: "rgba(96,165,250,0.6)" }}
-                    animate={{ scale: [1, 1.5, 1], opacity: [0.4, 1, 0.4] }}
-                    transition={{ duration: 1.5, repeat: Infinity }}
-                  />
-                  <span className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>
-                    Waiting for execution steps...
-                  </span>
-                </div>
-              </motion.div>
-            )}
-
-            {/* 空白提示：Run 未开始，引导用户输入 */}
-            {dynamicNodes.length === 0 && orchestrator.state !== "running" && (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-xs" style={{ color: "rgba(255,255,255,0.12)" }}>
-                  Execution graph will appear when task runs
-                </span>
+                  </div>
+                ))}
               </div>
-            )}
-          </>
-        )}
+            </>
+          )}
 
-        {/* ════════════════════════════════
-            空画布引导提示（新建会话无任务时）
-            ════════════════════════════════ */}
-        {isEmptyCanvas && (
-          <motion.div
-            className="absolute inset-0 flex flex-col items-center justify-center gap-4"
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
+        </div>{/* end 内层 transform 容器 */}
+
+        {/* 拖拽提示（右下角） */}
+        {!isEmptyCanvas && (
+          <div
+            className="absolute bottom-2 right-3 flex items-center gap-1 pointer-events-none"
+            style={{ opacity: 0.18, fontSize: "10px", color: "white" }}
           >
-            {/* 脉冲圆点 */}
-            <motion.div
-              className="w-3 h-3 rounded-full"
-              style={{ background: "rgba(96,165,250,0.25)", boxShadow: "0 0 12px rgba(96,165,250,0.2)" }}
-              animate={{ scale: [1, 1.4, 1], opacity: [0.3, 0.7, 0.3] }}
-              transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-            />
-            {/* 主引导文字 */}
-            <p className="text-sm text-center" style={{ color: "rgba(255,255,255,0.22)", maxWidth: 240, lineHeight: 1.7 }}>
-              Submit a task above to begin
-            </p>
-            {/* 副文字 */}
-            <p className="text-xs text-center" style={{ color: "rgba(255,255,255,0.10)", maxWidth: 260 }}>
-              The execution graph will grow step-by-step as the agent works
-            </p>
-          </motion.div>
-        )}
-
-        {/* ════════════════════════════════
-            静态兼容模式（无 executionEdges）
-            旧版卡片行 + SVG 直线连接
-            ════════════════════════════════ */}
-        {!useDynamicGraph && staticSubagents.length > 0 && (
-          <>
-            {/* 旧版 SVG 连线 */}
-            <svg
-              className="absolute inset-0 w-full h-full pointer-events-none"
-              style={{ overflow: "visible" }}
-            >
-              {staticSubagents.map((agent, i) => {
-                const total = staticSubagents.length;
-                const cardWidth = 192 + 16;
-                const targetXOffset = (i - (total - 1) / 2) * cardWidth;
-                return (
-                  <g key={agent.id}>
-                    <line
-                      x1="50%"
-                      y1="0"
-                      x2={`calc(50% + ${targetXOffset}px)`}
-                      y2="100%"
-                      stroke={
-                        agent.state.status === "running" ? "rgba(96,165,250,0.15)"
-                          : agent.state.status === "autofix" ? "rgba(251,191,36,0.15)"
-                          : agent.state.status === "success" ? "rgba(52,211,153,0.10)"
-                          : "rgba(255,255,255,0.04)"
-                      }
-                      strokeWidth="1"
-                      strokeDasharray={agent.state.status === "idle" ? "4 8" : "none"}
-                    />
-                    {(agent.state.status === "running" || agent.state.status === "autofix") && (
-                      <circle
-                        r="1.8"
-                        fill={agent.state.status === "autofix" ? "#fbbf24" : "#60a5fa"}
-                        opacity="0.8"
-                      >
-                        <animateMotion
-                          dur={agent.state.status === "autofix" ? "1.2s" : "2s"}
-                          repeatCount="indefinite"
-                          path={`M 0,0 L ${targetXOffset},100`}
-                          begin={`${i * 0.3}s`}
-                        />
-                      </circle>
-                    )}
-                  </g>
-                );
-              })}
-            </svg>
-
-            {/* 旧版卡片行 */}
-            <div className="flex items-center gap-4 flex-wrap justify-center relative z-10 h-full">
-              {staticSubagents.map((agent) => (
-                <SubagentCard
-                  key={agent.id}
-                  node={agent}
-                  {...(onNodeRevert !== undefined && { onRevert: onNodeRevert })}
-                  {...(onNodeRerun !== undefined && { onRerun: onNodeRerun })}
-                />
-              ))}
-            </div>
-          </>
+            <span>drag to pan</span>
+            <span style={{ opacity: 0.5 }}>· double-click to reset</span>
+          </div>
         )}
       </div>
 
@@ -386,6 +535,8 @@ interface DataPipeSvgPathProps {
   to: { x: number; y: number };
   state: "pending" | "active" | "completed" | "failed";
   edgeId: string;
+  /** 整体透明度（历史轮次降低到 0.35 等） */
+  opacity?: number;
 }
 
 /** 根据 state 派生颜色 */
@@ -408,14 +559,14 @@ function resolveColors(state: DataPipeSvgPathProps["state"]) {
  * 与 DataPipe.tsx（独立 SVG）不同，这个组件输出 SVG 元素（<g>），
  * 可直接放在父 <svg> 内，避免 SVG 嵌套问题。
  */
-function DataPipeSvgPath({ from, to, state, edgeId }: DataPipeSvgPathProps) {
+function DataPipeSvgPath({ from, to, state, edgeId, opacity = 1 }: DataPipeSvgPathProps) {
   const colors = resolveColors(state);
   const midY = (from.y + to.y) / 2;
   const pathD = `M ${from.x} ${from.y} C ${from.x} ${midY}, ${to.x} ${midY}, ${to.x} ${to.y}`;
   const gradId = `grad-${edgeId}`;
 
   return (
-    <g>
+    <g opacity={opacity}>
       <defs>
         <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={colors.particle} stopOpacity="0.7" />
@@ -500,3 +651,124 @@ function DataPipeSvgPath({ from, to, state, edgeId }: DataPipeSvgPathProps) {
     </g>
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 工具函数：为多轮对话计算每轮的布局（非 Hook，可在渲染体内调用）
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** 单轮布局结果（含 yOffset 信息，用于绑定到轮次分隔线） */
+interface RoundLayoutResult {
+  round: import("../../types/ui.js").ExecutionRound;
+  positions: Map<string, NodePosition>;
+  canvasHeight: number;
+  yOffset: number;
+}
+
+/**
+ * 为所有轮次计算 BFS 布局，并按轮次累积 yOffset
+ *
+ * 每轮的 yOffset = 前面所有轮次的 canvasHeight 之和 + 轮次间距（48px）
+ * 直接调用纯函数版布局（不依赖 useMemo，避免条件 Hook 问题）
+ */
+function computeRoundLayouts(
+  rounds: import("../../types/ui.js").ExecutionRound[],
+  containerWidth: number,
+): RoundLayoutResult[] {
+  const results: RoundLayoutResult[] = [];
+  let cumulativeY = 0;
+
+  for (const round of rounds) {
+    // 复用 useLayoutEngine 的纯计算逻辑（从 edges 计算节点坐标）
+    const { positions, canvasHeight } = computeLayout(round.executionEdges, containerWidth, "orchestrator", cumulativeY);
+    results.push({ round, positions, canvasHeight, yOffset: cumulativeY });
+    cumulativeY += canvasHeight + 48; // 每轮之间留 48px 间距
+  }
+
+  return results;
+}
+
+/** computeLayout — 纯函数版布局计算（逻辑与 useLayoutEngine 完全一致，无 Hook 依赖） */
+function computeLayout(
+  edges: ExecutionEdge[],
+  containerWidth: number,
+  orchestratorId: string,
+  yOffset: number,
+): { positions: Map<string, NodePosition>; canvasHeight: number } {
+  const NODE_W = 192;
+  const NODE_H = 100;
+  const LEVEL_H = 160;
+  const GAP_X = 24;
+
+  const positions = new Map<string, NodePosition>();
+
+  if (edges.length === 0) {
+    return { positions, canvasHeight: 200 };
+  }
+
+  const allNodeIds = new Set<string>();
+  for (const e of edges) {
+    allNodeIds.add(e.source);
+    allNodeIds.add(e.target);
+  }
+
+  const adj = new Map<string, string[]>();
+  const inDegree = new Map<string, number>();
+  for (const id of allNodeIds) { adj.set(id, []); inDegree.set(id, 0); }
+  for (const e of edges) {
+    adj.get(e.source)!.push(e.target);
+    inDegree.set(e.target, (inDegree.get(e.target) ?? 0) + 1);
+  }
+
+  const levelMap = new Map<string, number>();
+  const roots: string[] = [];
+  if (allNodeIds.has(orchestratorId)) {
+    roots.push(orchestratorId);
+    levelMap.set(orchestratorId, 0);
+  } else {
+    for (const [id, deg] of inDegree) {
+      if (deg === 0) { roots.push(id); levelMap.set(id, 0); }
+    }
+  }
+
+  const queue = [...roots];
+  while (queue.length > 0) {
+    const cur = queue.shift()!;
+    const curLevel = levelMap.get(cur) ?? 0;
+    for (const child of (adj.get(cur) ?? [])) {
+      const existing = levelMap.get(child);
+      if (existing === undefined || existing < curLevel + 1) {
+        levelMap.set(child, curLevel + 1);
+        queue.push(child);
+      }
+    }
+  }
+  for (const id of allNodeIds) {
+    if (!levelMap.has(id)) levelMap.set(id, 1);
+  }
+
+  const levelGroups = new Map<number, string[]>();
+  for (const [id, level] of levelMap) {
+    const group = levelGroups.get(level) ?? [];
+    group.push(id);
+    levelGroups.set(level, group);
+  }
+
+  const maxLevel = Math.max(...levelMap.values());
+  const canvasHeight = yOffset + (maxLevel + 1) * LEVEL_H + NODE_H + 40;
+
+  for (const [level, ids] of levelGroups) {
+    const count = ids.length;
+    const y = yOffset + 20 + level * LEVEL_H + NODE_H / 2;
+    ids.forEach((id, i) => {
+      const offsetX = (i - (count - 1) / 2) * (NODE_W + GAP_X);
+      const x = containerWidth / 2 + offsetX;
+      positions.set(id, { id, x, y, level, indexInLevel: i, totalInLevel: count });
+    });
+  }
+
+  return { positions, canvasHeight };
+}
+
+// NodePosition 类型在这里需要重新引用（已从 useLayoutEngine 导入）
+type NodePosition = import("../../hooks/useLayoutEngine.js").NodePosition;
+type ExecutionEdge = import("../../types/ui.js").ExecutionEdge;

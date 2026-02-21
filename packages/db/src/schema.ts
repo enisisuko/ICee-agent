@@ -99,11 +99,13 @@ export const CREATE_PROVIDERS = `
     name            TEXT    NOT NULL,
     type            TEXT    NOT NULL,   -- openai-compatible | ollama | lm-studio | custom
     base_url        TEXT    NOT NULL,
-    models          TEXT,               -- JSON 数组
+    api_key         TEXT,               -- API Key 明文（本地应用可接受）
+    model           TEXT,               -- 默认使用的模型名
+    models          TEXT,               -- JSON 数组（备用，多模型支持）
     supports_streaming  INTEGER NOT NULL DEFAULT 1,
     supports_cost_reporting INTEGER NOT NULL DEFAULT 0,
     version         TEXT,
-    api_key_ref     TEXT,               -- 加密存储的 key 引用
+    api_key_ref     TEXT,               -- 加密存储的 key 引用（保留旧字段兼容）
     is_default      INTEGER NOT NULL DEFAULT 0,
     created_at      TEXT    NOT NULL,
     updated_at      TEXT    NOT NULL

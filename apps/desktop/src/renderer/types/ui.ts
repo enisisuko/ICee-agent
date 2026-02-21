@@ -127,6 +127,34 @@ export interface TraceLogEntry {
 export type SidebarRoute = "dashboard" | "artifacts" | "settings";
 
 // ─────────────────────────────────────────────
+// 多轮对话类型
+// ─────────────────────────────────────────────
+
+/**
+ * 单轮对话的执行图快照
+ * 每次用户在同一 session 内提交任务，追加一条 ExecutionRound
+ * 画布按轮次垂直续接显示，历史轮降低亮度，最新轮正常亮度
+ */
+export interface ExecutionRound {
+  /** 轮次编号（1-based） */
+  roundIndex: number;
+  /** 该轮用户输入的任务文本 */
+  task: string;
+  /** 提交时间（ISO 字符串） */
+  submittedAt: string;
+  /** 该轮的有向执行边列表 */
+  executionEdges: ExecutionEdge[];
+  /** 该轮节点执行状态 */
+  subagents: SubagentNode[];
+  /** AI 最终回复（Run 完成后写入） */
+  aiOutput?: string;
+  /** 该轮 Graph JSON（供 forkRun 重跑使用） */
+  graphJson?: string;
+  /** 该轮执行状态 */
+  state: "running" | "completed" | "failed";
+}
+
+// ─────────────────────────────────────────────
 // 会话历史类型
 // ─────────────────────────────────────────────
 
@@ -142,23 +170,32 @@ export interface ConversationSession {
   createdAt: string;
   /** 该会话对应的 Orchestrator 状态快照 */
   orchestrator: OrchestratorData;
-  /** 该会话对应的 Trace 日志 */
+  /** 该会话对应的 Trace 日志（跨所有轮次累积） */
   traceLogs: TraceLogEntry[];
-  /** AI 最终回复文本（Run 完成后写入） */
+  /**
+   * 多轮对话的执行图列表（每次提交任务追加一项）
+   * - 新建会话时为 []
+   * - 画布按轮次垂直续接渲染
+   */
+  rounds: ExecutionRound[];
+  /**
+   * 当前最新轮 AI 回复文本（向下兼容，取 rounds 最后一项的 aiOutput）
+   * @deprecated 请使用 rounds[last].aiOutput
+   */
   aiOutput?: string;
-  /** 该会话的真实节点执行状态（从 StepEvent 驱动，为空时 fallback 到 mockSubagents） */
+  /**
+   * 当前最新轮节点状态（向下兼容，取 rounds 最后一项的 subagents）
+   * @deprecated 请使用 rounds[last].subagents
+   */
   subagents: SubagentNode[];
   /**
-   * 当前 Run 的有向执行边列表
-   * - 提交任务时从 graphJson.edges 解析，初始全为 pending
-   * - 每当 onStepEvent 到达时，target===nodeId 的边变为 active
-   * - onRunCompleted 时所有 active 变为 completed（或 failed）
-   * - 为空时 NerveCenter 显示空画布引导提示
+   * 当前最新轮有向执行边（向下兼容，取 rounds 最后一项的 executionEdges）
+   * @deprecated 请使用 rounds[last].executionEdges
    */
   executionEdges: ExecutionEdge[];
   /**
-   * 本次 Run 所用的 Graph JSON 字符串（用于 forkRun 重跑时传回 main process）
-   * 提交任务时写入，供 handleNodeRerun 使用
+   * 当前最新轮 Graph JSON（供 forkRun 重跑使用）
+   * @deprecated 请使用 rounds[last].graphJson
    */
   graphJson?: string;
 }

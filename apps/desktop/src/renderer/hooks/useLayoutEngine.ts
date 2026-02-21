@@ -42,7 +42,7 @@ export interface LayoutEngineResult {
 /**
  * useLayoutEngine — BFS 拓扑排序布局引擎
  *
- * 输入：ExecutionEdge[] + 容器宽度
+ * 输入：ExecutionEdge[] + 容器宽度 + 可选 Y 轴起始偏移
  * 输出：每个节点的屏幕坐标
  *
  * 算法：
@@ -51,11 +51,14 @@ export interface LayoutEngineResult {
  *    - 若无 orchestrator 节点，则取所有入度为 0 的节点作为第 1 层
  * 3. 同层节点横向居中排列，间距为 NODE_W + GAP_X
  * 4. orchestrator 固定在第 0 层顶部中心
+ *
+ * @param yOffset 整体 Y 轴偏移（像素），用于多轮对话时将每轮图垂直续接在上一轮下方
  */
 export function useLayoutEngine(
   edges: ExecutionEdge[],
   containerWidth: number,
   orchestratorId = "orchestrator",
+  yOffset = 0,
 ): LayoutEngineResult {
   return useMemo(() => {
     const positions = new Map<string, NodePosition>();
@@ -134,14 +137,12 @@ export function useLayoutEngine(
 
     // ── 计算坐标 ─────────────────────────────────────────────
     const maxLevel = Math.max(...levelMap.values());
-    const canvasHeight = (maxLevel + 1) * LEVEL_H + NODE_H + 40; // 额外下边距
+    const canvasHeight = yOffset + (maxLevel + 1) * LEVEL_H + NODE_H + 40; // 额外下边距
 
     for (const [level, ids] of levelGroups) {
       const count = ids.length;
-      // 该层总宽度
-      const totalWidth = count * NODE_W + (count - 1) * GAP_X;
-      // 层级起始 Y（从顶部往下，留 20px 顶边距）
-      const y = 20 + level * LEVEL_H + NODE_H / 2;
+      // 层级起始 Y（从顶部往下，留 20px 顶边距，加上 yOffset 实现多轮垂直续接）
+      const y = yOffset + 20 + level * LEVEL_H + NODE_H / 2;
 
       ids.forEach((id, i) => {
         // 居中：x 相对容器中心偏移
@@ -168,7 +169,7 @@ export function useLayoutEngine(
     );
 
     return { positions, canvasWidth, canvasHeight };
-  }, [edges, containerWidth, orchestratorId]);
+  }, [edges, containerWidth, orchestratorId, yOffset]);
 }
 
 /** 获取节点卡片左上角坐标（中心坐标转左上角，用于 absolute 定位） */

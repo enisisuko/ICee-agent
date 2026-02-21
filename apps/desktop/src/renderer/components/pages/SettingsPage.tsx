@@ -443,6 +443,7 @@ function ProviderFormDrawer({
   const { t } = useLanguage();
   const isEdit = initial !== null;
 
+  // useState 初始值只在首次 mount 生效；用 useEffect 监听 initial 变化重置所有字段
   const [name, setName] = useState(initial?.name ?? "");
   const [type, setType] = useState<ProviderConfig["type"]>(initial?.type ?? "openai-compatible");
   const [baseUrl, setBaseUrl] = useState(initial?.baseUrl ?? "");
@@ -451,6 +452,18 @@ function ProviderFormDrawer({
   const [isDefault, setIsDefault] = useState(initial?.isDefault ?? false);
   const [showKey, setShowKey] = useState(false);
   const [error, setError] = useState("");
+
+  // 每次 initial 变化（新建/切换编辑对象）时重置表单字段
+  useEffect(() => {
+    setName(initial?.name ?? "");
+    setType(initial?.type ?? "openai-compatible");
+    setBaseUrl(initial?.baseUrl ?? "");
+    setApiKey(initial?.apiKey ?? "");
+    setModel(initial?.model ?? "");
+    setIsDefault(initial?.isDefault ?? false);
+    setShowKey(false);
+    setError("");
+  }, [initial]);
 
   // 根据类型预填 baseUrl 提示
   const URL_PLACEHOLDER: Record<ProviderConfig["type"], string> = {

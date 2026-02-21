@@ -22,6 +22,7 @@ import type {
   RunHistoryItem,
   SubagentNode,
   ExecutionEdge,
+  ExecutionRound,
   NodeStepRecord,
   McpToolData,
 } from "./types/ui.js";
@@ -38,7 +39,6 @@ function createBlankSession(): ConversationSession {
     title: "New conversation",
     state: "idle",
     createdAt: new Date().toISOString(),
-    // exactOptionalPropertyTypes: runId 省略而非赋 undefined
     orchestrator: {
       epicTaskName: "Waiting for task...",
       progress: 0,
@@ -50,6 +50,7 @@ function createBlankSession(): ConversationSession {
     traceLogs: [],
     subagents: [],
     executionEdges: [],
+    rounds: [],
   };
 }
 
@@ -188,11 +189,22 @@ export function App() {
             }
           }
 
+          // ── 同步更新最新轮（rounds 最后一项）──────────────────
+          const updatedRounds = (s.rounds ?? []).map((r, i) => {
+            if (i !== (s.rounds?.length ?? 1) - 1) return r; // 只更新最新轮
+            return {
+              ...r,
+              subagents: updatedSubagents,
+              executionEdges: updatedEdges,
+            };
+          });
+
           return {
             ...s,
             traceLogs: [...s.traceLogs, entry],
             subagents: updatedSubagents,
             executionEdges: updatedEdges,
+            rounds: updatedRounds,
           };
         })
       );
@@ -235,6 +247,17 @@ export function App() {
             return edge;
           });
 
+          // ── 同步更新最新轮状态和 AI 回复 ──────────────────────
+          const completedRounds = (s.rounds ?? []).map((r, i) => {
+            if (i !== (s.rounds?.length ?? 1) - 1) return r;
+            return {
+              ...r,
+              executionEdges: finalEdges,
+              state: (isFailed ? "failed" : "completed") as "completed" | "failed",
+              ...(aiText !== undefined && { aiOutput: aiText }),
+            };
+          });
+
           return {
             ...s,
             state: (payload.state.toLowerCase() as ConversationSession["state"]),
@@ -246,10 +269,12 @@ export function App() {
               totalCostUsd: payload.totalCostUsd,
               activeAgents: 0,
             },
-            // 写入 AI 回复
+            // 写入 AI 回复（向下兼容）
             ...(aiText !== undefined && { aiOutput: aiText }),
-            // 更新最终边状态
+            // 更新最终边状态（向下兼容）
             executionEdges: finalEdges,
+            // 更新多轮数据
+            rounds: completedRounds,
           };
         })
       );
@@ -385,9 +410,22 @@ export function App() {
       // 从 graphJson 解析出初始边（全部 pending）
       const initialEdges = parseEdgesFromGraph(graphJson);
 
+      // 构造新一轮的 ExecutionRound
+      const newRound: ExecutionRound = {
+        roundIndex: 0, // 下面用 sessions 当前值计算实际轮次
+        task,
+        submittedAt: new Date().toISOString(),
+        executionEdges: initialEdges,
+        subagents: [],
+        graphJson,
+        state: "running" as const,
+      };
+
       setSessions((prev) =>
         prev.map((s) => {
           if (s.id !== sid) return s;
+          const roundIndex = (s.rounds?.length ?? 0) + 1;
+          const round = { ...newRound, roundIndex };
           return {
             ...s,
             title: shortTitle,
@@ -402,6 +440,7 @@ export function App() {
               state: "running" as const,
             },
             traceLogs: [
+              ...s.traceLogs,
               {
                 id: `sys-${Date.now()}`,
                 type: "SYSTEM" as const,
@@ -409,11 +448,11 @@ export function App() {
                 message: `Task submitted: "${shortTitle}"`,
               },
             ],
-            // 初始化执行边（全部 pending，等待 StepEvent 激活）
+            // 多轮：把新轮追加到 rounds 列表
+            rounds: [...(s.rounds ?? []), round],
+            // 向下兼容：同步更新顶层字段（最新轮的数据）
             executionEdges: initialEdges,
-            // 清空旧的 subagents，让动态图从零开始生长
             subagents: [],
-            // 保存 graphJson 供 forkRun（重跑）使用
             graphJson,
           };
         })
@@ -935,6 +974,7 @@ export function App() {
                     skills={mockSkills}
                     {...(currentSession.aiOutput !== undefined && { aiOutput: currentSession.aiOutput })}
                     executionEdges={currentSession.executionEdges}
+                    rounds={currentSession.rounds ?? []}
                     onTaskSubmit={handleTaskSubmit}
                     onStop={handleStop}
                     onNodeRevert={handleNodeRevert}
