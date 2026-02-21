@@ -387,8 +387,8 @@ export function App() {
             version: "1.0.0",
             cache: "no-cache",
             config: {
-              provider: "ollama",
-              model: "llama3.2",
+              // model 字段不在这里硬编码；LLMNodeExecutor 会 fallback 到主进程 globalProviderRef.model
+              // 这样切换 Provider 后无需重新提交任务，model 立即生效
               temperature: 0.7,
               maxTokens: 512,
               systemPrompt: "You are a helpful, concise assistant. Answer in the same language as the user.",

@@ -146,7 +146,7 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="flex h-full w-full overflow-hidden">
+    <div className="flex h-full w-full overflow-hidden relative">
       {/* 左侧分组导航 */}
       <SettingsNav activeSection={activeSection} onSelect={setActiveSection} />
 
@@ -499,19 +499,19 @@ function ProviderFormDrawer({
 
   return (
     <>
-      {/* 背景遮罩 */}
+      {/* 背景遮罩：z-50 确保盖住父 SettingsPage 的所有内容 */}
       <motion.div
-        className="absolute inset-0 z-10"
-        style={{ background: "rgba(0,0,0,0.50)" }}
+        className="absolute inset-0 z-50"
+        style={{ background: "rgba(0,0,0,0.55)" }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
       />
 
-      {/* 表单面板（右侧滑入） */}
+      {/* 表单面板（右侧滑入）：z-[60] 在遮罩之上 */}
       <motion.div
-        className="absolute right-0 top-0 bottom-0 z-20 flex flex-col overflow-hidden"
+        className="absolute right-0 top-0 bottom-0 z-[60] flex flex-col overflow-hidden"
         style={{
           width: "360px",
           background: "rgba(12,14,20,0.98)",

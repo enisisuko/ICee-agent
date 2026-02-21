@@ -17,6 +17,169 @@ const mcpManager = new McpClientManager();
 // ── 延迟加载运行时模块（仅首次 IPC 调用时初始化）───
 let runtimeReady = false;
 
+// ── 模块级 Provider 引用容器 ─────────────────────
+// 提升到模块顶层，使得 provider IPC handler（早于 initRuntime 注册）
+// 和 LLMNodeExecutor 闭包（initRuntime 内部）都能引用同一个对象
+// initRuntime 运行后填充 instance；reload-provider handler 随时可以替换
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const globalProviderRef: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  instance: any | null;
+  model: string;
+  url: string;
+  healthy: boolean;
+  win: BrowserWindow | null;
+} = {
+  instance: null,
+  model: "llama3.2",
+  url: "http://localhost:11434",
+  healthy: false,
+  win: null,
+};
+
+// ── 模块级 DB 容器（早于 initRuntime 打开，供 provider IPC 使用）─
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const earlyDbRef: { db: any | null } = { db: null };
+
+/**
+ * 确保 DB 已初始化（幂等）
+ * 在 provider IPC handler 调用时按需打开，供 initRuntime 内共享同一单例
+ */
+async function ensureEarlyDb(): Promise</* IceeDatabase */ { instance: any }> { // eslint-disable-line @typescript-eslint/no-explicit-any
+  if (earlyDbRef.db) return earlyDbRef.db;
+  const { getDatabase } = await import("@icee/db");
+  const dbPath = path.join(app.getPath("userData"), "icee.db");
+  earlyDbRef.db = getDatabase(dbPath);
+  return earlyDbRef.db;
+}
+
+/**
+ * 注册 Provider CRUD + reload IPC handler
+ * 必须在 app.whenReady 后、窗口创建前调用，确保渲染进程一启动就能使用
+ * 不依赖 initRuntime 是否完成
+ */
+function registerProviderHandlers() {
+
+  // ── IPC: list-providers ────────────────────────────────────────
+  ipcMain.handle("icee:list-providers", async () => {
+    try {
+      const db = await ensureEarlyDb();
+      const rows = db.instance.prepare(
+        "SELECT * FROM providers ORDER BY is_default DESC, created_at DESC"
+      ).all() as Array<{
+        id: string; name: string; type: string; base_url: string;
+        api_key?: string; model?: string; is_default: number;
+      }>;
+      return rows.map(r => ({
+        id: r.id,
+        name: r.name,
+        type: r.type,
+        baseUrl: r.base_url,
+        ...(r.api_key && { apiKey: r.api_key }),
+        ...(r.model && { model: r.model }),
+        isDefault: r.is_default === 1,
+      }));
+    } catch (e) {
+      console.error("[ICEE Main] list-providers error:", e);
+      return [];
+    }
+  });
+
+  // ── IPC: save-provider ─────────────────────────────────────────
+  ipcMain.handle("icee:save-provider", async (_event, config: {
+    id: string; name: string; type: string; baseUrl: string;
+    apiKey?: string; model?: string; isDefault: boolean;
+  }) => {
+    try {
+      const db = await ensureEarlyDb();
+      if (config.isDefault) {
+        db.instance.prepare("UPDATE providers SET is_default = 0").run();
+      }
+      db.instance.prepare(`
+        INSERT OR REPLACE INTO providers
+          (id, name, type, base_url, api_key, model, is_default, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?,
+          COALESCE((SELECT created_at FROM providers WHERE id = ?), CURRENT_TIMESTAMP),
+          CURRENT_TIMESTAMP)
+      `).run(
+        config.id, config.name, config.type, config.baseUrl,
+        config.apiKey ?? null, config.model ?? null,
+        config.isDefault ? 1 : 0, config.id,
+      );
+      console.log(`[ICEE Main] save-provider OK: ${config.name} (${config.type})`);
+      return { ok: true };
+    } catch (e) {
+      console.error("[ICEE Main] save-provider error:", e);
+      return { error: (e as Error).message };
+    }
+  });
+
+  // ── IPC: delete-provider ───────────────────────────────────────
+  ipcMain.handle("icee:delete-provider", async (_event, id: string) => {
+    try {
+      const db = await ensureEarlyDb();
+      db.instance.prepare("DELETE FROM providers WHERE id = ?").run(id);
+      return { ok: true };
+    } catch (e) {
+      console.error("[ICEE Main] delete-provider error:", e);
+      return { error: (e as Error).message };
+    }
+  });
+
+  // ── IPC: reload-provider ──────────────────────────────────────
+  // 前端保存 Provider 后调用，主进程重新读取默认 Provider 并重建实例
+  // globalProviderRef 由 initRuntime 填充；若 runtime 尚未就绪，跳过实例替换只返回 DB 状态
+  ipcMain.handle("icee:reload-provider", async () => {
+    try {
+      const db = await ensureEarlyDb();
+      const newRow = db.instance.prepare(
+        "SELECT type, base_url, api_key, model FROM providers WHERE is_default = 1 LIMIT 1"
+      ).get() as { type: string; base_url: string; api_key?: string; model?: string } | undefined;
+
+      if (!newRow) {
+        globalProviderRef.win?.webContents.send("icee:ollama-status", { healthy: false, url: "no provider" });
+        return { ok: true, message: "No default provider found" };
+      }
+
+      // 更新 globalProviderRef 中的 model 和 url（即使 instance 尚未就绪也要更新，
+      // 以便 initRuntime 启动时读取到正确的值）
+      const newModel = newRow.model ?? (newRow.type === "ollama" ? "llama3.2" : "gpt-4o-mini");
+      const newUrl = newRow.base_url;
+      globalProviderRef.model = newModel;
+      globalProviderRef.url = newUrl;
+
+      // 如果 runtime 已就绪（instance 存在），替换实例并做健康检查
+      if (globalProviderRef.instance !== null) {
+        const { OllamaProvider } = await import("@icee/providers");
+        const { OpenAICompatibleProvider } = await import("@icee/providers");
+
+        if (newRow.type === "openai-compatible" || newRow.type === "lm-studio" || newRow.type === "custom") {
+          globalProviderRef.instance = new OpenAICompatibleProvider({
+            baseUrl: newUrl,
+            ...(newRow.api_key && { apiKey: newRow.api_key }),
+            ...(newRow.model && { defaultModel: newRow.model }),
+          });
+        } else {
+          globalProviderRef.instance = new OllamaProvider({ baseUrl: newUrl });
+        }
+
+        const healthy = await globalProviderRef.instance.healthCheck();
+        globalProviderRef.healthy = healthy;
+        globalProviderRef.win?.webContents.send("icee:ollama-status", { healthy, url: newUrl });
+        console.log(`[ICEE Main] Provider reloaded: ${newRow.type} @ ${newUrl} model=${newModel} — ${healthy ? "✅" : "❌"}`);
+        return { ok: true, healthy, url: newUrl };
+      }
+
+      // runtime 还未就绪，只更新了 globalProviderRef 字段，initRuntime 启动时会使用新值
+      console.log(`[ICEE Main] reload-provider: runtime not ready yet, queued model=${newModel}`);
+      return { ok: true, healthy: false, url: newUrl };
+    } catch (e) {
+      console.error("[ICEE Main] reload-provider error:", e);
+      return { error: (e as Error).message };
+    }
+  });
+}
+
 /**
  * 附件数据结构（来自 renderer 的 IPC 传参）
  */
@@ -32,9 +195,12 @@ async function initRuntime(win: BrowserWindow) {
   if (runtimeReady) return;
   runtimeReady = true;
 
+  // 保存 win 引用到 globalProviderRef，供 reload-provider handler 发送事件使用
+  globalProviderRef.win = win;
+
   try {
     // 动态导入运行时（避免影响窗口启动速度）
-    const { getDatabase, RunRepository, StepRepository, EventRepository } =
+    const { RunRepository, StepRepository, EventRepository } =
       await import("@icee/db");
     const {
       GraphRuntime,
@@ -48,15 +214,18 @@ async function initRuntime(win: BrowserWindow) {
       ReflectionNodeExecutor,
       PlanningNodeExecutor,
     } = await import("@icee/core");
-    const { OllamaProvider } = await import("@icee/providers");
+    const { OllamaProvider, OpenAICompatibleProvider } = await import("@icee/providers");
 
-    const dbPath = path.join(app.getPath("userData"), "icee.db");
-    const iceeDb = getDatabase(dbPath);
+    // 复用 earlyDbRef 中已初始化的 DB（由 registerProviderHandlers 触发的首次 IPC 调用时打开）
+    // 若 earlyDbRef.db 还没初始化（极少数情况，如 runtime 先于 provider IPC 被调用），则现在打开
+    const iceeDb = await ensureEarlyDb();
     const runRepo = new RunRepository(iceeDb.instance);
     const stepRepo = new StepRepository(iceeDb.instance);
     const eventRepo = new EventRepository(iceeDb.instance);
 
-    // ── 读取 DB 中的默认 Provider，动态选择真实 Provider ────────
+    // ── 读取 DB 中的默认 Provider ────────────────────────────
+    const ollamaUrl = process.env["OLLAMA_URL"] ?? "http://localhost:11434";
+
     let providerTypeInDb: string | null = null;
     let providerBaseUrlInDb: string | null = null;
     let providerApiKeyInDb: string | null = null;
@@ -73,59 +242,38 @@ async function initRuntime(win: BrowserWindow) {
         console.log(`[ICEE Main] DB default provider: type=${providerTypeInDb} url=${providerBaseUrlInDb}`);
       }
     } catch {
-      // providers 表可能不存在（冷启动），静默跳过
       console.log("[ICEE Main] providers table not ready yet, using Ollama default");
     }
 
-    // ── 根据 DB 配置选择 Provider ────────────────────────────
-    const { OpenAICompatibleProvider } = await import("@icee/providers");
-
-    const ollamaUrl = process.env["OLLAMA_URL"] ?? "http://localhost:11434";
-
-    // 优先使用 DB 中配置的 Provider；若无则 fallback Ollama
-    // 使用对象容器包裹，确保 reload-provider 后 LLMNodeExecutor 闭包能拿到最新实例
-    const providerRef: {
-      instance: InstanceType<typeof OllamaProvider> | InstanceType<typeof OpenAICompatibleProvider>;
-      model: string;
-      url: string;
-      healthy: boolean;
-    } = {
-      instance: null as unknown as InstanceType<typeof OllamaProvider>,
-      model: "llama3.2",
-      url: ollamaUrl,
-      healthy: false,
-    };
-
+    // ── 初始化 globalProviderRef.instance ─────────────────────
+    // 如果 reload-provider 在 initRuntime 前被调用过，globalProviderRef.model/url 可能已经更新；
+    // 优先使用 DB 读取值（更权威），globalProviderRef 字段会在下方被覆盖
     if (providerTypeInDb === "openai-compatible" || providerTypeInDb === "lm-studio" || providerTypeInDb === "custom") {
-      providerRef.instance = new OpenAICompatibleProvider({
+      globalProviderRef.instance = new OpenAICompatibleProvider({
         baseUrl: providerBaseUrlInDb ?? "https://api.openai.com/v1",
         ...(providerApiKeyInDb && { apiKey: providerApiKeyInDb }),
         ...(providerModelInDb && { defaultModel: providerModelInDb }),
       });
-      providerRef.url = providerBaseUrlInDb ?? "https://api.openai.com/v1";
-      providerRef.model = providerModelInDb ?? "gpt-4o-mini";
+      globalProviderRef.url = providerBaseUrlInDb ?? "https://api.openai.com/v1";
+      globalProviderRef.model = providerModelInDb ?? "gpt-4o-mini";
     } else {
-      // ollama 或未配置，使用 Ollama
       const ollamaBase = (providerTypeInDb === "ollama" && providerBaseUrlInDb)
         ? providerBaseUrlInDb
         : ollamaUrl;
-      providerRef.instance = new OllamaProvider({ baseUrl: ollamaBase });
-      providerRef.url = ollamaBase;
-      providerRef.model = providerModelInDb ?? "llama3.2";
+      globalProviderRef.instance = new OllamaProvider({ baseUrl: ollamaBase });
+      globalProviderRef.url = ollamaBase;
+      globalProviderRef.model = providerModelInDb ?? "llama3.2";
     }
 
-    // 兼容旧代码：保留 provider / activeModel 别名（只读引用，热重载通过 providerRef 实现）
-    const activeModel = providerRef.model;
-
-    console.log(`[ICEE Main] Using provider: type=${providerTypeInDb ?? "ollama(default)"} url=${providerRef.url} model=${activeModel}`);
+    console.log(`[ICEE Main] Using provider: type=${providerTypeInDb ?? "ollama(default)"} url=${globalProviderRef.url} model=${globalProviderRef.model}`);
 
     // ── 健康检查 ─────────────────────────────────────────────
-    const ollamaHealthy = await providerRef.instance.healthCheck();
-    providerRef.healthy = ollamaHealthy;
+    const ollamaHealthy = await globalProviderRef.instance.healthCheck();
+    globalProviderRef.healthy = ollamaHealthy;
 
     win.webContents.send("icee:ollama-status", {
       healthy: ollamaHealthy,
-      url: providerRef.url,
+      url: globalProviderRef.url,
     });
 
     // ── 初始化 MCP 连接（使用文档目录作为默认允许目录）──
@@ -152,21 +300,22 @@ async function initRuntime(win: BrowserWindow) {
 
     registry.register(
       new LLMNodeExecutor(async (config, _input) => {
-        // 每次调用时从 providerRef 读取最新实例（热重载后即刻生效）
-        if (!providerRef.healthy) {
+        // 每次调用时从 globalProviderRef 读取最新实例（热重载后即刻生效）
+        if (!globalProviderRef.healthy) {
           // Provider 不可用时降级为 mock
           return {
-            text: `[Mock] ${config.model ?? providerRef.model}: Provider not available. Check Settings > Providers.`,
+            text: `[Mock] ${globalProviderRef.model}: Provider not available. Check Settings > Providers.`,
             tokens: 50,
             costUsd: 0,
-            providerMeta: { provider: "mock", model: config.model ?? providerRef.model },
+            providerMeta: { provider: "mock", model: globalProviderRef.model },
           };
         }
 
-        // 优先使用节点配置的 model，fallback 到当前 Provider 的默认 model
-        const resolvedModel = config.model ?? providerRef.model;
+        // config.model 若为空/undefined，则 fallback 到 globalProviderRef.model（当前配置的模型）
+        // 注意：graphJson 中不再硬编码 model，此处 config.model 将为 undefined，全部走 fallback
+        const resolvedModel = (config.model && config.model.trim()) ? config.model : globalProviderRef.model;
 
-        const result = await providerRef.instance.generateComplete({
+        const result = await globalProviderRef.instance.generateComplete({
           model: resolvedModel,
           messages: [
             {
@@ -439,131 +588,8 @@ async function initRuntime(win: BrowserWindow) {
       return runs;
     });
 
-    // ── IPC: list-providers ────────────────────
-    // 从 SQLite providers 表查询（如果不存在，返回空数组）
-    ipcMain.handle("icee:list-providers", async () => {
-      try {
-        const rows = iceeDb.instance.prepare(
-          "SELECT * FROM providers ORDER BY is_default DESC, created_at DESC"
-        ).all() as Array<{
-          id: string;
-          name: string;
-          type: string;
-          base_url: string;
-          api_key?: string;
-          model?: string;
-          is_default: number;
-        }>;
-        return rows.map(r => ({
-          id: r.id,
-          name: r.name,
-          type: r.type,
-          baseUrl: r.base_url,
-          ...(r.api_key && { apiKey: r.api_key }),
-          ...(r.model && { model: r.model }),
-          isDefault: r.is_default === 1,
-        }));
-      } catch (e) {
-        console.error("[ICEE Main] list-providers error:", e);
-        return [];
-      }
-    });
-
-    // ── IPC: save-provider ─────────────────────
-    // 插入或更新 Provider 配置到 SQLite
-    ipcMain.handle("icee:save-provider", async (_event, config: {
-      id: string;
-      name: string;
-      type: string;
-      baseUrl: string;
-      apiKey?: string;
-      model?: string;
-      isDefault: boolean;
-    }) => {
-      try {
-        // 如果设为默认，先清除其他 Provider 的 default 标记
-        if (config.isDefault) {
-          iceeDb.instance.prepare("UPDATE providers SET is_default = 0").run();
-        }
-        // 使用 UPSERT（INSERT OR REPLACE）
-        iceeDb.instance.prepare(`
-          INSERT OR REPLACE INTO providers (id, name, type, base_url, api_key, model, is_default, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM providers WHERE id = ?), CURRENT_TIMESTAMP), CURRENT_TIMESTAMP)
-        `).run(
-          config.id,
-          config.name,
-          config.type,
-          config.baseUrl,
-          config.apiKey ?? null,
-          config.model ?? null,
-          config.isDefault ? 1 : 0,
-          config.id
-        );
-        return { ok: true };
-      } catch (e) {
-        console.error("[ICEE Main] save-provider error:", e);
-        return { error: (e as Error).message };
-      }
-    });
-
-    // ── IPC: delete-provider ───────────────────
-    ipcMain.handle("icee:delete-provider", async (_event, id: string) => {
-      try {
-        iceeDb.instance.prepare("DELETE FROM providers WHERE id = ?").run(id);
-        return { ok: true };
-      } catch (e) {
-        console.error("[ICEE Main] delete-provider error:", e);
-        return { error: (e as Error).message };
-      }
-    });
-
-    // ── IPC: reload-provider ────────────────────
-    // 前端保存新 Provider 配置后，触发主进程重新读取默认 Provider 并更新 providerRef
-    // 这样下次 run-graph 时 LLMNodeExecutor 闭包会自动使用新配置
-    ipcMain.handle("icee:reload-provider", async () => {
-      try {
-        const newRow = iceeDb.instance.prepare(
-          "SELECT type, base_url, api_key, model FROM providers WHERE is_default = 1 LIMIT 1"
-        ).get() as { type: string; base_url: string; api_key?: string; model?: string } | undefined;
-
-        if (!newRow) {
-          win.webContents.send("icee:ollama-status", { healthy: false, url: "no provider configured" });
-          return { ok: true, message: "No default provider found" };
-        }
-
-        // 重新构建 Provider 实例并替换 providerRef（LLMNodeExecutor 闭包下次调用即生效）
-        let newUrl: string;
-        let newModel: string;
-
-        if (newRow.type === "openai-compatible" || newRow.type === "lm-studio" || newRow.type === "custom") {
-          providerRef.instance = new OpenAICompatibleProvider({
-            baseUrl: newRow.base_url,
-            ...(newRow.api_key && { apiKey: newRow.api_key }),
-            ...(newRow.model && { defaultModel: newRow.model }),
-          });
-          newUrl = newRow.base_url;
-          newModel = newRow.model ?? "gpt-4o-mini";
-        } else {
-          providerRef.instance = new OllamaProvider({ baseUrl: newRow.base_url });
-          newUrl = newRow.base_url;
-          newModel = newRow.model ?? "llama3.2";
-        }
-
-        providerRef.url = newUrl;
-        providerRef.model = newModel;
-
-        const healthy = await providerRef.instance.healthCheck();
-        providerRef.healthy = healthy;
-
-        win.webContents.send("icee:ollama-status", { healthy, url: newUrl });
-
-        console.log(`[ICEE Main] Provider reloaded & applied: ${newRow.type} @ ${newUrl} model=${newModel} — ${healthy ? "✅" : "❌"}`);
-        return { ok: true, healthy, url: newUrl };
-      } catch (e) {
-        console.error("[ICEE Main] reload-provider error:", e);
-        return { error: (e as Error).message };
-      }
-    });
+    // 注：list-providers / save-provider / delete-provider / reload-provider
+    // 已在 registerProviderHandlers() 中提前注册（app.whenReady 时），此处不再重复
 
     // ── IPC: list-mcp-tools ────────────────────
     ipcMain.handle("icee:list-mcp-tools", async () => {
@@ -667,6 +693,10 @@ function createWindow() {
 
 // ── Electron 生命周期 ──────────────────────────
 app.whenReady().then(() => {
+  // 提前注册 Provider CRUD IPC（不依赖 runtime 就绪）
+  // 必须在 createWindow() 之前调用，确保渲染进程一启动就能使用
+  registerProviderHandlers();
+
   createWindow();
 
   // macOS：点击 Dock 图标时重新打开窗口
