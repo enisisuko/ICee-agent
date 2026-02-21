@@ -1,0 +1,25 @@
+{
+  "name": "icee-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ICEE — Trace-First Agent Graph Runtime",
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "test": "turbo test",
+    "lint": "turbo lint",
+    "clean": "turbo clean",
+    "desktop": "pnpm --filter @icee/desktop dev",
+    "cli": "pnpm --filter @icee/cli dev"
+  },
+  "devDependencies": {
+    "turbo": "latest",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0",
+    "@vitest/coverage-v8": "^1.6.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}

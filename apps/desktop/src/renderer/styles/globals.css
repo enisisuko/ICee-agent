@@ -1,0 +1,98 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ICEE 全局设计规范 */
+:root {
+  --color-surface-base: #08090c;
+  --color-surface-card: #0f1117;
+  --color-surface-overlay: #161b24;
+  --color-surface-raised: #1c2333;
+
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
+  --color-border-default: rgba(255, 255, 255, 0.10);
+  --color-border-strong: rgba(255, 255, 255, 0.16);
+
+  /* 状态色 */
+  --color-thinking: #60a5fa;
+  --color-success: #34d399;
+  --color-error: #f87171;
+  --color-autofix: #fbbf24;
+  --color-active: #a78bfa;
+  --color-mcp: #fb7185;
+  --color-idle: #4b5563;
+
+  /* 字体 */
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", monospace;
+
+  /* 动画时长 */
+  --duration-fast: 150ms;
+  --duration-default: 200ms;
+  --duration-slow: 300ms;
+  --duration-breath: 3000ms;
+  --duration-pipe: 1500ms;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--color-surface-base);
+  color: rgba(255, 255, 255, 0.88);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 滚动条样式 (克制，与背景融合) */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.20);
+}
+
+/* 选择高亮 */
+::selection {
+  background: rgba(96, 165, 250, 0.25);
+}
+
+/* 字体层级辅助类 */
+.text-primary { color: rgba(255, 255, 255, 0.88); }
+.text-secondary { color: rgba(255, 255, 255, 0.50); }
+.text-tertiary { color: rgba(255, 255, 255, 0.30); }
+.text-muted { color: rgba(255, 255, 255, 0.20); }
+
+/* 卡片基础样式 */
+.card-base {
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 4px;
+  transition: border-color var(--duration-default) ease-out;
+}
+
+.card-base:hover {
+  border-color: var(--color-border-default);
+}

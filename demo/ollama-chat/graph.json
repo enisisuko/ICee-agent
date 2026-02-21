@@ -1,0 +1,52 @@
+{
+  "id": "demo-ollama-chat",
+  "name": "Ollama Chat",
+  "version": "1.0.0",
+  "description": "A minimal demo graph for local Ollama: takes a user query, sends it to a local LLM, returns the response. Input → LLM(ollama) → Output",
+  "nodes": [
+    {
+      "id": "input",
+      "type": "INPUT",
+      "label": "User Query",
+      "version": "1.0.0",
+      "cache": "no-cache"
+    },
+    {
+      "id": "chat",
+      "type": "LLM",
+      "label": "Ollama LLM",
+      "version": "1.0.0",
+      "cache": "no-cache",
+      "retry": {
+        "maxRetries": 2,
+        "backoffStrategy": "fixed",
+        "backoffBaseMs": 1000,
+        "retryOnErrorTypes": ["PROVIDER_ERROR"]
+      },
+      "config": {
+        "provider": "ollama",
+        "model": "llama3.2",
+        "temperature": 0.7,
+        "topP": 0.9,
+        "maxTokens": 512,
+        "systemPrompt": "You are a helpful, concise assistant. Answer in the same language as the user's question.",
+        "promptTemplate": "{{input.query}}"
+      }
+    },
+    {
+      "id": "output",
+      "type": "OUTPUT",
+      "label": "Response",
+      "version": "1.0.0",
+      "cache": "no-cache"
+    }
+  ],
+  "edges": [
+    { "id": "e1", "source": "input", "target": "chat" },
+    { "id": "e2", "source": "chat", "target": "output" }
+  ],
+  "createdAt": "2026-02-22T00:00:00.000Z",
+  "updatedAt": "2026-02-22T00:00:00.000Z",
+  "author": "ICEE Team",
+  "tags": ["demo", "ollama", "chat", "local"]
+}

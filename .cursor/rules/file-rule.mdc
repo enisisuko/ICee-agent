@@ -1,0 +1,6 @@
+---
+description: 
+alwaysApply: true
+---
+
+放入项目本体文件夹的文件会全部上传到github，所以ai的文件和记录全部放到这个文件夹以外

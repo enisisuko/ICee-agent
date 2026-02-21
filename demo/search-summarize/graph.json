@@ -1,0 +1,79 @@
+{
+  "id": "demo-search-summarize",
+  "name": "Search & Summarize",
+  "version": "1.0.0",
+  "description": "A demo graph: takes a query, searches the web, and summarizes the results. InputNode → SearchToolNode → SummarizeLLMNode → OutputNode",
+  "nodes": [
+    {
+      "id": "input",
+      "type": "INPUT",
+      "label": "Query Input",
+      "version": "1.0.0",
+      "cache": "no-cache"
+    },
+    {
+      "id": "search",
+      "type": "TOOL",
+      "label": "Web Search",
+      "version": "1.0.0",
+      "cache": "read-through",
+      "retry": {
+        "maxRetries": 3,
+        "backoffStrategy": "exponential",
+        "backoffBaseMs": 1000,
+        "retryOnErrorTypes": ["TOOL_ERROR", "TIMEOUT_ERROR"]
+      },
+      "config": {
+        "toolName": "web_search",
+        "toolVersion": "latest",
+        "timeoutMs": 15000,
+        "inputMapping": {
+          "query": "query"
+        }
+      }
+    },
+    {
+      "id": "summarize",
+      "type": "LLM",
+      "label": "Summarize Results",
+      "version": "1.0.0",
+      "cache": "no-cache",
+      "retry": {
+        "maxRetries": 2,
+        "backoffStrategy": "fixed",
+        "backoffBaseMs": 2000,
+        "retryOnErrorTypes": ["PROVIDER_ERROR"]
+      },
+      "guardrails": {
+        "schemaValidation": true,
+        "llmOutputValidation": false,
+        "confidenceThreshold": 0.7
+      },
+      "config": {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "temperature": 0.3,
+        "topP": 1,
+        "maxTokens": 1024,
+        "systemPrompt": "You are a concise summarization assistant. Summarize the search results clearly and accurately in 3-5 sentences.",
+        "promptTemplate": "Search query: {{input.query}}\n\nSearch results:\n{{output.result}}\n\nPlease provide a concise summary."
+      }
+    },
+    {
+      "id": "output",
+      "type": "OUTPUT",
+      "label": "Final Output",
+      "version": "1.0.0",
+      "cache": "no-cache"
+    }
+  ],
+  "edges": [
+    { "id": "e1", "source": "input", "target": "search" },
+    { "id": "e2", "source": "search", "target": "summarize" },
+    { "id": "e3", "source": "summarize", "target": "output" }
+  ],
+  "createdAt": "2026-02-21T00:00:00.000Z",
+  "updatedAt": "2026-02-21T00:00:00.000Z",
+  "author": "ICEE Team",
+  "tags": ["demo", "search", "summarize"]
+}
