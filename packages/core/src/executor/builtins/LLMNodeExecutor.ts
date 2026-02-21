@@ -23,8 +23,13 @@ export class LLMNodeExecutor extends BaseNodeExecutor {
 
   async execute(node: NodeDefinition, ctx: NodeContext): Promise<NodeResult> {
     const config = node.config as LLMNodeConfig | undefined;
-    if (!config?.provider || !config?.model) {
-      throw new Error(`LLM node "${node.id}" missing provider or model config`);
+
+    // config.provider / config.model 允许为空：
+    // 当 graphJson 不携带这两个字段时，由注入的 invokeProvider callback
+    // （main/index.ts 中的 LLMNodeExecutor 构造函数）负责 fallback 到 globalProviderRef
+    // 只有在完全没有 config 对象的情况下才抛出错误
+    if (!config) {
+      throw new Error(`LLM node "${node.id}" missing config entirely`);
     }
 
     // 渲染 Prompt 模板 (简单字符串替换)
@@ -35,7 +40,8 @@ export class LLMNodeExecutor extends BaseNodeExecutor {
       ctx.runMemory
     );
 
-    log.debug({ nodeId: node.id, provider: config.provider, model: config.model }, "LLM node invoking provider");
+    // provider/model 可能为空，由 invokeProvider callback 决定实际值（从 globalProviderRef fallback）
+    log.debug({ nodeId: node.id, provider: config.provider ?? "(from globalProviderRef)", model: config.model ?? "(from globalProviderRef)" }, "LLM node invoking provider");
 
     const result = await this.invokeProvider(
       { ...config, promptTemplate: renderedPrompt },
