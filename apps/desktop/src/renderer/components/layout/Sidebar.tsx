@@ -230,9 +230,9 @@ function NavButton({
       onClick={onClick}
       className="w-full flex items-center gap-2.5 px-3 py-2 rounded text-left"
       style={{
-        background: isActive ? "rgba(255,255,255,0.07)" : "transparent",
-        border: "1px solid transparent",
-        borderColor: isActive ? "rgba(255,255,255,0.09)" : "transparent",
+        background: isActive ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0)",
+        border: "1px solid rgba(0,0,0,0)",
+        borderColor: isActive ? "rgba(255,255,255,0.09)" : "rgba(0,0,0,0)",
         color: isActive ? "rgba(255,255,255,0.72)" : "rgba(255,255,255,0.28)",
         fontSize: "12px",
       }}
@@ -277,9 +277,9 @@ function SessionItem({
       onClick={onSelect}
       className="w-full text-left rounded px-2.5 py-2 mb-0.5 relative"
       style={{
-        background: isActive ? "rgba(255,255,255,0.07)" : "transparent",
-        border: "1px solid transparent",
-        borderColor: isActive ? "rgba(255,255,255,0.09)" : "transparent",
+        background: isActive ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0)",
+        border: "1px solid rgba(0,0,0,0)",
+        borderColor: isActive ? "rgba(255,255,255,0.09)" : "rgba(0,0,0,0)",
       }}
       whileHover={{ background: "rgba(255,255,255,0.045)" }}
       whileTap={{ scale: 0.98 }}

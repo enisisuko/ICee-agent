@@ -307,6 +307,23 @@ function registerProviderHandlers() {
     // runtime 就绪前返回未连接状态
     return { connected: false, allowedDir: "", tools: [] };
   });
+
+  // ── IPC: run-graph（早期占位版本，runtime 未就绪时返回明确错误）──────
+  // renderer 在窗口加载后可能立即提交任务（MCP 超时需60秒），必须提前注册；
+  // initRuntime 就绪后通过 removeHandler + re-register 覆盖为真实数据版本
+  ipcMain.handle("icee:run-graph", async () => {
+    return { error: "Runtime is still initializing, please wait a moment and try again." };
+  });
+
+  // ── IPC: cancel-run（早期占位，runtime 未就绪时忽略）────────────────
+  ipcMain.handle("icee:cancel-run", async () => {
+    return { ok: false, error: "Runtime not ready" };
+  });
+
+  // ── IPC: fork-run（早期占位，runtime 未就绪时忽略）─────────────────
+  ipcMain.handle("icee:fork-run", async () => {
+    return { ok: false, error: "Runtime not ready" };
+  });
 }
 
 /**
@@ -488,6 +505,8 @@ async function initRuntime(win: BrowserWindow) {
         const resolvedModel = (config.model && config.model.trim()) ? config.model : liveModel;
 
         console.log(`[ICEE LLM] Calling provider with model=${resolvedModel}`);
+        console.log(`[ICEE LLM] systemPrompt="${config.systemPrompt?.slice(0,50)}"`);
+        console.log(`[ICEE LLM] promptTemplate(rendered)="${String(config.promptTemplate).slice(0,200)}"`);
 
         const result = await liveProvider.generateComplete({
           model: resolvedModel,
@@ -632,6 +651,8 @@ async function initRuntime(win: BrowserWindow) {
 
     // ── IPC: run-graph ─────────────────────────
     // 接收 renderer 的任务提交请求（新增附件和 providerId 参数）
+    // 移除早期占位 handler，替换为真实实现
+    ipcMain.removeHandler("icee:run-graph");
     ipcMain.handle(
       "icee:run-graph",
       async (
@@ -710,6 +731,7 @@ async function initRuntime(win: BrowserWindow) {
     );
 
     // ── IPC: cancel-run ────────────────────────
+    ipcMain.removeHandler("icee:cancel-run");
     ipcMain.handle("icee:cancel-run", async (_event, runId: string) => {
       runtime.cancelRun(runId);
       return { ok: true };
@@ -719,6 +741,7 @@ async function initRuntime(win: BrowserWindow) {
     // 从指定 Step 开始重新执行（用于节点 Rerun 功能）
     // parentRunId: 原始 Run ID；fromStepId: 从哪个步骤开始；
     // graphJson: 图定义；inputOverrideJson: 覆盖的输入（含编辑后 Prompt）
+    ipcMain.removeHandler("icee:fork-run");
     ipcMain.handle(
       "icee:fork-run",
       async (_event, parentRunId: string, fromStepId: string, graphJson: string, inputOverrideJson?: string) => {

@@ -410,7 +410,7 @@ export function TaskInputBar({ orchestratorState, onSubmit, onStop, providers = 
                   <motion.button
                     onClick={handleAttachClick}
                     className="flex items-center gap-1.5 text-2xs rounded px-1.5 py-1"
-                    style={{ color: "rgba(255,255,255,0.30)" }}
+                    style={{ color: "rgba(255,255,255,0.30)", background: "rgba(0,0,0,0)" }}
                     whileHover={{ color: "rgba(255,255,255,0.60)", background: "rgba(255,255,255,0.05)" }}
                     transition={{ duration: 0.10 }}
                     title="添加文件/图片（最大 20MB）"
@@ -660,13 +660,13 @@ export function TaskInputBar({ orchestratorState, onSubmit, onStop, providers = 
                           <button
                             key={opt.value}
                             className="w-full text-left px-3 py-2.5 flex items-center gap-2.5"
-                            style={{ background: isSelected ? "rgba(96,165,250,0.10)" : "transparent" }}
+                            style={{ background: isSelected ? "rgba(96,165,250,0.10)" : "rgba(0,0,0,0)" }}
                             onClick={() => {
                               onModelChange?.(opt.value);
                               setModelDropdownOpen(false);
                             }}
                             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; }}
-                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = isSelected ? "rgba(96,165,250,0.10)" : "transparent"; }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = isSelected ? "rgba(96,165,250,0.10)" : "rgba(0,0,0,0)"; }}
                           >
                             <span
                               className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-0.5"
