@@ -196,7 +196,10 @@ export function TaskInputBar({ orchestratorState, onSubmit, onStop, providers = 
 
   return (
     <div className="w-full flex justify-center">
-      <div className="w-full max-w-lg">
+      {/* 右侧模型选择器（输入框外部，竖向对齐） */}
+      <div className="flex items-start gap-3 w-full max-w-2xl">
+        {/* 左：主输入区（占满剩余宽度） */}
+        <div className="flex-1 min-w-0">
         <AnimatePresence mode="wait">
 
           {/* ── Idle / Input 模式 ── */}
@@ -379,130 +382,26 @@ export function TaskInputBar({ orchestratorState, onSubmit, onStop, providers = 
                     spellCheck={false}
                   />
 
-                  {/* 模型选择器 + 发送按钮 组合 */}
-                  <div className="flex items-center gap-1 flex-shrink-0 mb-0.5">
-                    {/* 模型选择下拉 */}
-                    {modelOptions.length > 0 && (
-                      <div className="relative">
-                        <motion.button
-                          onClick={() => setModelDropdownOpen(prev => !prev)}
-                          className="flex items-center gap-1 px-2 py-1 rounded text-2xs"
-                          style={{
-                            background: modelDropdownOpen ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.03)",
-                            border: "1px solid rgba(255,255,255,0.10)",
-                            color: "rgba(255,255,255,0.45)",
-                            maxWidth: "110px",
-                          }}
-                          whileHover={{ background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.65)" }}
-                          transition={{ duration: 0.10 }}
-                          title={`当前模型: ${currentModelLabel}`}
-                        >
-                          {/* 小圆点指示器 */}
-                          <span
-                            className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                            style={{ background: "rgba(96,165,250,0.60)" }}
-                          />
-                          <span className="truncate font-mono" style={{ fontSize: "10px", maxWidth: "80px" }}>
-                            {currentModelLabel}
-                          </span>
-                          {/* 下拉箭头 */}
-                          <svg
-                            width="8" height="8" viewBox="0 0 8 8" fill="currentColor"
-                            style={{ flexShrink: 0, opacity: 0.5, transform: modelDropdownOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}
-                          >
-                            <path d="M1 2.5L4 5.5L7 2.5" stroke="currentColor" strokeWidth="1.2" fill="none" strokeLinecap="round"/>
-                          </svg>
-                        </motion.button>
-
-                        {/* 下拉菜单 */}
-                        <AnimatePresence>
-                          {modelDropdownOpen && (
-                            <motion.div
-                              className="absolute bottom-full mb-1 right-0 rounded-lg overflow-hidden"
-                              style={{
-                                background: "rgba(13,17,23,0.98)",
-                                border: "1px solid rgba(255,255,255,0.10)",
-                                minWidth: "180px",
-                                zIndex: 100,
-                                boxShadow: "0 8px 32px rgba(0,0,0,0.60)",
-                              }}
-                              initial={{ opacity: 0, y: 4, scale: 0.96 }}
-                              animate={{ opacity: 1, y: 0, scale: 1 }}
-                              exit={{ opacity: 0, y: 4, scale: 0.96 }}
-                              transition={{ duration: 0.12 }}
-                            >
-                              <div className="px-3 py-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                                <p className="text-2xs" style={{ color: "rgba(255,255,255,0.35)" }}>选择模型</p>
-                              </div>
-                              <div className="py-1">
-                                {modelOptions.map(opt => (
-                                  <button
-                                    key={opt.value}
-                                    className="w-full text-left px-3 py-2 flex items-center gap-2"
-                                    style={{
-                                      background: (selectedModel ?? modelOptions[0]?.value) === opt.value
-                                        ? "rgba(96,165,250,0.10)"
-                                        : "transparent",
-                                    }}
-                                    onClick={() => {
-                                      onModelChange?.(opt.value);
-                                      setModelDropdownOpen(false);
-                                    }}
-                                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; }}
-                                    onMouseLeave={e => {
-                                      (e.currentTarget as HTMLElement).style.background =
-                                        (selectedModel ?? modelOptions[0]?.value) === opt.value
-                                          ? "rgba(96,165,250,0.10)"
-                                          : "transparent";
-                                    }}
-                                  >
-                                    {/* 选中指示器 */}
-                                    <span
-                                      className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                                      style={{
-                                        background: (selectedModel ?? modelOptions[0]?.value) === opt.value
-                                          ? "rgba(96,165,250,0.80)"
-                                          : "rgba(255,255,255,0.15)",
-                                      }}
-                                    />
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-xs truncate font-mono" style={{ color: "rgba(255,255,255,0.75)" }}>
-                                        {opt.label}
-                                      </p>
-                                      <p className="text-2xs truncate" style={{ color: "rgba(255,255,255,0.30)" }}>
-                                        {opt.providerName}
-                                      </p>
-                                    </div>
-                                  </button>
-                                ))}
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    )}
-
                     {/* 发送按钮 */}
-                    <motion.button
-                      onClick={handleSubmit}
-                      disabled={!hasContent}
-                      className="px-3 py-1 rounded text-xs font-medium"
-                      animate={{
-                        opacity: hasContent ? 1 : 0.30,
-                        background: hasContent
-                          ? "rgba(96,165,250,0.18)"
-                          : "transparent",
-                      }}
-                      transition={{ duration: 0.12 }}
-                      style={{
-                        border: "1px solid rgba(96,165,250,0.20)",
-                        color: "rgba(96,165,250,0.80)",
-                      }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      {t.taskInput.run}
-                    </motion.button>
-                  </div>
+                  <motion.button
+                    onClick={handleSubmit}
+                    disabled={!hasContent}
+                    className="flex-shrink-0 px-3 py-1 rounded text-xs font-medium mb-0.5"
+                    animate={{
+                      opacity: hasContent ? 1 : 0.30,
+                      background: hasContent
+                        ? "rgba(96,165,250,0.18)"
+                        : "transparent",
+                    }}
+                    transition={{ duration: 0.12 }}
+                    style={{
+                      border: "1px solid rgba(96,165,250,0.20)",
+                      color: "rgba(96,165,250,0.80)",
+                    }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    {t.taskInput.run}
+                  </motion.button>
                 </div>
 
                 {/* 底部工具栏 */}
@@ -671,7 +570,133 @@ export function TaskInputBar({ orchestratorState, onSubmit, onStop, providers = 
           )}
 
         </AnimatePresence>
-      </div>
+        </div>{/* 左侧输入区结束 */}
+
+        {/* 右：模型选择器（仅 idle 状态 + 有 providers 时显示） */}
+        <AnimatePresence>
+          {isIdle && modelOptions.length > 0 && (
+            <motion.div
+              className="flex-shrink-0 relative"
+              initial={{ opacity: 0, x: 6 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 6 }}
+              transition={{ duration: 0.18 }}
+              style={{ paddingTop: "2px" }} // 对齐输入框顶部
+            >
+              {/* 触发按钮 */}
+              <motion.button
+                onClick={() => setModelDropdownOpen(prev => !prev)}
+                className="flex flex-col items-center gap-1 px-2 py-2 rounded-lg"
+                style={{
+                  background: modelDropdownOpen ? "rgba(96,165,250,0.10)" : "rgba(255,255,255,0.03)",
+                  border: `1px solid ${modelDropdownOpen ? "rgba(96,165,250,0.25)" : "rgba(255,255,255,0.08)"}`,
+                  color: "rgba(255,255,255,0.45)",
+                  minWidth: "52px",
+                  maxWidth: "72px",
+                }}
+                whileHover={{
+                  background: "rgba(96,165,250,0.08)",
+                  borderColor: "rgba(96,165,250,0.20)",
+                  color: "rgba(255,255,255,0.70)",
+                }}
+                transition={{ duration: 0.10 }}
+                title={`当前模型: ${currentModelLabel}`}
+              >
+                {/* 模型图标 */}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ opacity: 0.7 }}>
+                  <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                  <path d="M2 17l10 5 10-5"/>
+                  <path d="M2 12l10 5 10-5"/>
+                </svg>
+                {/* 当前模型（截断两行） */}
+                <span
+                  className="font-mono text-center leading-tight"
+                  style={{
+                    fontSize: "9px",
+                    color: "rgba(255,255,255,0.40)",
+                    wordBreak: "break-all",
+                    display: "-webkit-box",
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
+                    maxWidth: "60px",
+                  }}
+                >
+                  {currentModelLabel}
+                </span>
+                {/* 下拉箭头 */}
+                <svg
+                  width="8" height="8" viewBox="0 0 8 8"
+                  style={{ opacity: 0.35, transform: modelDropdownOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}
+                >
+                  <path d="M1 2.5L4 5.5L7 2.5" stroke="currentColor" strokeWidth="1.2" fill="none" strokeLinecap="round"/>
+                </svg>
+              </motion.button>
+
+              {/* 下拉菜单（向左展开） */}
+              <AnimatePresence>
+                {modelDropdownOpen && (
+                  <motion.div
+                    className="absolute top-0 right-full mr-2 rounded-lg overflow-hidden"
+                    style={{
+                      background: "rgba(13,17,23,0.98)",
+                      border: "1px solid rgba(255,255,255,0.10)",
+                      minWidth: "200px",
+                      zIndex: 200,
+                      boxShadow: "0 8px 32px rgba(0,0,0,0.60)",
+                    }}
+                    initial={{ opacity: 0, x: 6, scale: 0.96 }}
+                    animate={{ opacity: 1, x: 0, scale: 1 }}
+                    exit={{ opacity: 0, x: 6, scale: 0.96 }}
+                    transition={{ duration: 0.14 }}
+                  >
+                    <div className="px-3 py-2.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                      <p className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.50)" }}>选择模型</p>
+                    </div>
+                    <div className="py-1">
+                      {modelOptions.map(opt => {
+                        const isSelected = (selectedModel ?? modelOptions[0]?.value) === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            className="w-full text-left px-3 py-2.5 flex items-center gap-2.5"
+                            style={{ background: isSelected ? "rgba(96,165,250,0.10)" : "transparent" }}
+                            onClick={() => {
+                              onModelChange?.(opt.value);
+                              setModelDropdownOpen(false);
+                            }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = isSelected ? "rgba(96,165,250,0.10)" : "transparent"; }}
+                          >
+                            <span
+                              className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-0.5"
+                              style={{ background: isSelected ? "rgba(96,165,250,0.80)" : "rgba(255,255,255,0.15)" }}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-mono truncate" style={{ color: "rgba(255,255,255,0.80)" }}>
+                                {opt.label}
+                              </p>
+                              <p className="text-2xs truncate" style={{ color: "rgba(255,255,255,0.30)" }}>
+                                {opt.providerName}
+                              </p>
+                            </div>
+                            {isSelected && (
+                              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ flexShrink: 0, color: "rgba(96,165,250,0.70)" }}>
+                                <path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+      </div>{/* flex 外层结束 */}
     </div>
   );
 }
