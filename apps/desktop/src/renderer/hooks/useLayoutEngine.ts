@@ -27,8 +27,19 @@ export interface NodePosition {
  */
 const NODE_W = 192;
 const NODE_H = 100;
-const LEVEL_H = 160;
+const LEVEL_H = 150;  // 稍微紧凑，整体布局更美观
 const GAP_X = 24;
+
+/**
+ * 节点横向偏移表（钻石形布局）
+ * 相对于 BFS 层级居中位置的额外像素偏移
+ * 正值 = 向右，负值 = 向左
+ * 使 decompose(Context) 和 execute(Executor) 左右扩散，形成钻石形态
+ */
+const X_BIAS: Record<string, number> = {
+  decompose: -150,  // Context 节点向左扩散
+  execute:    150,  // Executor 节点向右扩散
+};
 
 export interface LayoutEngineResult {
   /** 节点 ID → 坐标映射（含 Orchestrator） */
@@ -147,7 +158,9 @@ export function useLayoutEngine(
       ids.forEach((id, i) => {
         // 居中：x 相对容器中心偏移
         const offsetX = (i - (count - 1) / 2) * (NODE_W + GAP_X);
-        const x = containerWidth / 2 + offsetX;
+        // 叠加钻石形偏移（X_BIAS 中定义的节点横向错开）
+        const bias = X_BIAS[id] ?? 0;
+        const x = containerWidth / 2 + offsetX + bias;
 
         positions.set(id, {
           id,

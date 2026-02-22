@@ -316,10 +316,17 @@ export function NerveCenter({
 
                     {/* 节点卡片 */}
                     <AnimatePresence>
-                      {roundNodes.map((node) => {
+                      {roundNodes.map((node, nodeIdx) => {
                         const pos = rPos.get(node.id);
                         if (!pos) return null;
                         const { left, top } = toTopLeft(pos);
+                        // 从父节点滑出动画
+                        const parentEdge = round.executionEdges.find(e => e.target === node.id);
+                        const parentPos = parentEdge ? rPos.get(parentEdge.source) : undefined;
+                        const initialY = parentPos
+                          ? Math.max((parentPos.y - pos.y) * 0.35, -30)
+                          : -20;
+                        const initialX = parentPos ? (parentPos.x - pos.x) * 0.25 : 0;
                         return (
                           <motion.div
                             key={`r${ri}-${node.id}`}
@@ -329,14 +336,16 @@ export function NerveCenter({
                               top,
                               width: 192,
                               zIndex: 10,
-                              // 历史轮降低亮度，最新轮正常
-                              opacity: isLatest ? 1 : 0.45,
                               filter: isLatest ? "none" : "saturate(0.4)",
                             }}
-                            initial={{ opacity: 0, scale: 0.85, y: 8 }}
-                            animate={{ opacity: isLatest ? 1 : 0.45, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.85 }}
-                            transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
+                            initial={{ opacity: 0, scale: 0.90, y: initialY, x: initialX }}
+                            animate={{ opacity: isLatest ? 1 : 0.45, scale: 1, y: 0, x: 0 }}
+                            exit={{ opacity: 0, scale: 0.85, y: -8 }}
+                            transition={{
+                              duration: 0.42,
+                              ease: [0.23, 1, 0.32, 1],
+                              delay: nodeIdx * 0.04,
+                            }}
                             onMouseDown={(e) => e.stopPropagation()}
                             onDoubleClick={(e) => e.stopPropagation()}
                           >
@@ -386,19 +395,38 @@ export function NerveCenter({
 
               {/* 节点卡片（absolute 定位到计算坐标） */}
               <AnimatePresence>
-                {dynamicNodes.map((node) => {
+                {dynamicNodes.map((node, idx) => {
                   const pos = positions.get(node.id);
                   if (!pos) return null;
                   const { left, top } = toTopLeft(pos);
+
+                  // 计算出现动画的初始偏移：从父节点位置向下滑出
+                  // 找到该节点的父节点（source edge），取父节点 Y 坐标与当前节点 Y 的差值
+                  const parentEdge = executionEdges.find(e => e.target === node.id);
+                  const parentPos = parentEdge ? positions.get(parentEdge.source) : undefined;
+                  // initialY：从父节点方向滑入（向上出发，落到当前位置）
+                  // 没有父节点则从上方 20px 淡入
+                  const initialY = parentPos
+                    ? Math.max((parentPos.y - pos.y) * 0.35, -30)  // 最多向上偏移 30px
+                    : -20;
+                  // 左右方向偏移（从父节点 X 偏移过来）
+                  const initialX = parentPos
+                    ? (parentPos.x - pos.x) * 0.25   // 轻微横向滑入
+                    : 0;
+
                   return (
                     <motion.div
                       key={node.id}
                       className="absolute"
                       style={{ left, top, width: 192, zIndex: 10 }}
-                      initial={{ opacity: 0, scale: 0.85, y: 8 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.85 }}
-                      transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
+                      initial={{ opacity: 0, scale: 0.90, y: initialY, x: initialX }}
+                      animate={{ opacity: 1, scale: 1, y: 0, x: 0 }}
+                      exit={{ opacity: 0, scale: 0.85, y: -8 }}
+                      transition={{
+                        duration: 0.42,
+                        ease: [0.23, 1, 0.32, 1],
+                        delay: idx * 0.04,   // 节点依次出现，错开 40ms
+                      }}
                       onMouseDown={(e) => e.stopPropagation()}
                       onDoubleClick={(e) => e.stopPropagation()}
                     >

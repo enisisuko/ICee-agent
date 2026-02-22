@@ -33,12 +33,14 @@ export class LLMNodeExecutor extends BaseNodeExecutor {
     }
 
     // 渲染 Prompt 模板 (简单字符串替换)
+    log.debug({ template: config.promptTemplate, globalInput: ctx.globalInput, previousOutput: ctx.previousOutput }, "Rendering prompt template");
     const renderedPrompt = this.renderTemplate(
       config.promptTemplate ?? "",
       ctx.previousOutput,
       ctx.globalInput,
       ctx.runMemory
     );
+    log.debug({ renderedPrompt: renderedPrompt.slice(0, 200) }, "Rendered prompt");
 
     // provider/model 可能为空，由 invokeProvider callback 决定实际值（从 globalProviderRef fallback）
     log.debug({ nodeId: node.id, provider: config.provider ?? "(from globalProviderRef)", model: config.model ?? "(from globalProviderRef)" }, "LLM node invoking provider");
@@ -75,8 +77,15 @@ export class LLMNodeExecutor extends BaseNodeExecutor {
       if (namespace === "memory") {
         return String(runMemory?.get(key) ?? "");
       }
-      if (namespace === "output" && typeof previousOutput === "object" && previousOutput !== null) {
-        return String((previousOutput as Record<string, unknown>)[key] ?? "");
+      if (namespace === "output") {
+        // previousOutput 为字符串时（LLM 节点输出），{{output.text}} 直接返回该字符串
+        if (typeof previousOutput === "string") {
+          return key === "text" ? previousOutput : "";
+        }
+        if (typeof previousOutput === "object" && previousOutput !== null) {
+          return String((previousOutput as Record<string, unknown>)[key] ?? "");
+        }
+        return "";
       }
       return "";
     });

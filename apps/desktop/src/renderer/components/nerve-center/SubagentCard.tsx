@@ -20,6 +20,18 @@ const NODE_TYPE_ICONS: Record<SubagentNode["type"], string> = {
   MEMORY: "▣",
 };
 
+/**
+ * 节点类型顶部光条颜色（2px 彩条，idle 状态也可见，用于区分节点身份）
+ * 参考 ICEE 色彩系统：紫/青/蓝/金/绿/白灰
+ */
+const TYPE_ACCENT: Record<SubagentNode["type"], string> = {
+  PLANNING:   "rgba(167,139,250,0.75)",  // 紫色 — Planner
+  MEMORY:     "rgba(34,211,238,0.75)",   // 青色 — Context
+  LLM:        "rgba(96,165,250,0.75)",   // 蓝色 — Executor
+  REFLECTION: "rgba(251,191,36,0.75)",   // 金色 — Reflector
+  TOOL:       "rgba(251,113,133,0.75)",  // 玫红 — Tool
+};
+
 /** 根据状态返回边框颜色 */
 function getBorderColor(state: SubagentCardState): string {
   switch (state.status) {
@@ -114,11 +126,23 @@ export function SubagentCard({ node, onRevert, onRerun }: SubagentCardProps) {
         }}
         transition={{ duration: 0.3, ease: "easeOut" }}
       >
-        {/* Running 状态: 顶部流光条 */}
+        {/* 节点类型标识光条（2px，始终可见，颜色由 type 决定） */}
+        <div
+          style={{
+            position: "absolute",
+            top: 0, left: 0, right: 0,
+            height: "2px",
+            background: TYPE_ACCENT[node.type] ?? "rgba(255,255,255,0.15)",
+            borderRadius: "8px 8px 0 0",
+            zIndex: 1,
+          }}
+        />
+
+        {/* Running 状态: 顶部流光条（叠加在标识光条之上，动态扫描效果） */}
         {state.status === "running" && (
           <motion.div
             className="absolute top-0 left-0 h-px"
-            style={{ background: "rgba(96, 165, 250, 0.80)" }}
+            style={{ background: "rgba(255,255,255,0.90)", zIndex: 2 }}
             animate={{ width: [`${(state.progress ?? 0)}%`, `${Math.min((state.progress ?? 0) + 15, 100)}%`] }}
             transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
           />

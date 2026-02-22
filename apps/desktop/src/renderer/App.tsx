@@ -6,7 +6,7 @@ import { TraceLogDrawer } from "./components/nerve-center/TraceLogDrawer.js";
 import { ArtifactsPage } from "./components/pages/ArtifactsPage.js";
 import { SettingsPage } from "./components/pages/SettingsPage.js";
 import { useIceeRuntime } from "./hooks/useIceeRuntime.js";
-import { LanguageProvider } from "./i18n/LanguageContext.js";
+import { useLanguage } from "./i18n/LanguageContext.js";
 import {
   mockSubagents,
   mockMcpTools,
@@ -92,6 +92,9 @@ function parseEdgesFromGraph(graphJson: string): ExecutionEdge[] {
  *   settings  → SettingsPage
  */
 export function App() {
+  // 读取当前语言翻译（LanguageProvider 在 main.tsx 中包裹，此处可直接调用）
+  const { t } = useLanguage();
+
   const [activeRoute, setActiveRoute] = useState<SidebarRoute>("dashboard");
 
   // 所有会话列表：头部是新空白会话，其余是历史
@@ -452,39 +455,89 @@ export function App() {
       const tempRunId = genId();
 
       // 预先构造 graphJson（用于解析 edges），Electron 和 mock 共用此结构
+      // 6节点链式思考图：Input → Planner → Context/Executor → Reflector → Output
+      // 提示词根据当前语言（t.agentPrompts）自动切换中英文
+      const ap = t.agentPrompts;
       const graphJson = JSON.stringify({
         id: `session-${sid}`,
         name: shortTitle,
         version: "1.0.0",
         description: task,
         nodes: [
+          // 1. 输入节点
           { id: "input", type: "INPUT", label: "User Input", version: "1.0.0", cache: "no-cache" },
+          // 2. 规划节点（PLANNING）— 把任务分解为3步
           {
-            id: "chat",
-            type: "LLM",
-            label: "AI Response",
+            id: "plan",
+            type: "PLANNING",
+            label: "Planner",
             version: "1.0.0",
             cache: "no-cache",
             config: {
-              // modelOverride: 用户在输入框右侧手动选择的模型；未选时为 undefined，
-              // LLMNodeExecutor 会 fallback 到主进程 globalProviderRef.model（DB 中的默认 provider）
-              ...(modelOverride && { model: modelOverride }),
-              temperature: 0.7,
-              maxTokens: 512,
-              systemPrompt: "You are a helpful, concise assistant. Answer in the same language as the user.",
-              promptTemplate: "{{input.query}}",
+              systemPrompt: ap.planner.systemPrompt,
+              promptTemplate: ap.planner.promptTemplate,
+              temperature: 0.5,
+              maxTokens: 300,
             },
           },
+          // 3. 上下文节点（MEMORY）— 提取技术要点，接收 plan 的输出
+          {
+            id: "decompose",
+            type: "MEMORY",
+            label: "Context",
+            version: "1.0.0",
+            cache: "no-cache",
+            config: {
+              systemPrompt: ap.context.systemPrompt,
+              promptTemplate: ap.context.promptTemplate,
+              temperature: 0.4,
+              maxTokens: 300,
+            },
+          },
+          // 4. 执行节点（LLM）— 根据计划生成完整内容，接收 decompose 的输出
+          {
+            id: "execute",
+            type: "LLM",
+            label: "Executor",
+            version: "1.0.0",
+            cache: "no-cache",
+            config: {
+              systemPrompt: ap.executor.systemPrompt,
+              promptTemplate: ap.executor.promptTemplate,
+              temperature: 0.7,
+              maxTokens: 2048,
+              // 用户手动选择的模型（未选时 fallback 到 globalProviderRef）
+              ...(modelOverride && { model: modelOverride }),
+            },
+          },
+          // 5. 反思节点（REFLECTION）— 审查整合输出，接收 execute 的输出
+          {
+            id: "reflect",
+            type: "REFLECTION",
+            label: "Reflector",
+            version: "1.0.0",
+            cache: "no-cache",
+            config: {
+              systemPrompt: ap.reflector.systemPrompt,
+              promptTemplate: ap.reflector.promptTemplate,
+              temperature: 0.4,
+              maxTokens: 2048,
+            },
+          },
+          // 6. 输出节点
           { id: "output", type: "OUTPUT", label: "Response", version: "1.0.0", cache: "no-cache" },
         ],
         edges: [
-          { id: "e1", source: "input", target: "chat" },
-          { id: "e2", source: "chat", target: "output" },
+          { id: "e1", source: "input",     target: "plan"      }, // 输入 → 规划
+          { id: "e2", source: "plan",      target: "decompose"  }, // 规划 → 上下文分析
+          { id: "e3", source: "decompose", target: "execute"    }, // 上下文 → 执行
+          { id: "e4", source: "execute",   target: "reflect"    }, // 执行 → 反思
+          { id: "e5", source: "reflect",   target: "output"     }, // 反思 → 输出
         ],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         author: "ICEE UI",
-        tags: ["ui", "chat"],
+        tags: ["ui", "chat", "chain-of-thought"],
       });
 
       // 从 graphJson 解析出初始边（全部 pending）
@@ -729,7 +782,7 @@ export function App() {
         );
       }, totalDelay);
     },
-    [activeSessionId, isElectron, runGraph]
+    [activeSessionId, isElectron, runGraph, t]
   ); // handleTaskSubmit
 
   /**
@@ -1006,7 +1059,6 @@ export function App() {
   }, [activeSessionId, isElectron, cancelRun, currentSession.orchestrator.runId]);
 
   return (
-    <LanguageProvider>
     <div
       className="flex h-screen w-screen overflow-hidden"
       style={{ background: "#08090c" }}
@@ -1105,6 +1157,5 @@ export function App() {
         )}
       </AnimatePresence>
     </div>
-    </LanguageProvider>
   );
 }
