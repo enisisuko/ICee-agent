@@ -1,4 +1,4 @@
-import type { StepEvent } from "@icee/shared";
+﻿import type { StepEvent } from "@omega/shared";
 
 /**
  * Event Repository — 负责 events 表的操作

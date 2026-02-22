@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { NodeStepRecord, SubagentNode } from "../../types/ui.js";
 import { RerunModal } from "./RerunModal.js";
+import { useLanguage } from "../../i18n/LanguageContext.js";
 
 interface NodeDetailPanelProps {
   node: SubagentNode;
@@ -44,6 +45,7 @@ function truncate(text: string, max = 120): string {
  * - "Rerun" 按钮：打开 RerunModal，可编辑 prompt 后重新执行
  */
 export function NodeDetailPanel({ node, onRevert, onRerun }: NodeDetailPanelProps) {
+  const { t } = useLanguage();
   const [expandedStepId, setExpandedStepId] = useState<string | null>(null);
   const [rerunStep, setRerunStep] = useState<NodeStepRecord | null>(null);
   const [rerunModalOpen, setRerunModalOpen] = useState(false);
@@ -77,7 +79,7 @@ export function NodeDetailPanel({ node, onRevert, onRerun }: NodeDetailPanelProp
           style={{ borderColor: "rgba(255,255,255,0.05)" }}
         >
           <span className="text-2xs font-mono uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.28)" }}>
-            Step History
+            {t.nodeDetail.stepHistory}
           </span>
           <span
             className="text-2xs px-1.5 py-0.5 rounded-full font-mono"
@@ -94,7 +96,7 @@ export function NodeDetailPanel({ node, onRevert, onRerun }: NodeDetailPanelProp
         {steps.length === 0 ? (
           <div className="px-3 py-4 text-center">
             <p className="text-xs" style={{ color: "rgba(255,255,255,0.20)" }}>
-              No step history yet
+              {t.nodeDetail.noHistory}
             </p>
           </div>
         ) : (
@@ -186,7 +188,7 @@ export function NodeDetailPanel({ node, onRevert, onRerun }: NodeDetailPanelProp
                           {step.prompt && (
                             <div className="pt-3">
                               <p className="text-2xs mb-1.5 uppercase tracking-wider font-mono" style={{ color: "rgba(255,255,255,0.25)" }}>
-                                Prompt sent
+                                {t.nodeDetail.promptSent}
                               </p>
                               <div
                                 className="rounded p-2 text-xs font-mono leading-relaxed"
@@ -288,7 +290,7 @@ export function NodeDetailPanel({ node, onRevert, onRerun }: NodeDetailPanelProp
                                 }}
                               >
                                 <span>⤺</span>
-                                <span>Revert this step</span>
+                                <span>{t.nodeDetail.revertStep}</span>
                               </button>
 
                               {/* 重新生成按钮 */}
@@ -306,7 +308,7 @@ export function NodeDetailPanel({ node, onRevert, onRerun }: NodeDetailPanelProp
                                 }}
                               >
                                 <span>↻</span>
-                                <span>Rerun from here</span>
+                                <span>{t.nodeDetail.rerunFromHere}</span>
                               </button>
                             </div>
                           )}
@@ -316,7 +318,7 @@ export function NodeDetailPanel({ node, onRevert, onRerun }: NodeDetailPanelProp
                             <div className="flex items-center gap-1.5 pt-1">
                               <span className="text-2xs" style={{ color: "rgba(255,255,255,0.25)" }}>⤺</span>
                               <span className="text-2xs" style={{ color: "rgba(255,255,255,0.25)" }}>
-                                This step has been reverted
+                                {t.nodeDetail.stepReverted}
                               </span>
                             </div>
                           )}

@@ -1,11 +1,11 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+﻿import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Sidebar } from "./components/layout/Sidebar.js";
 import { NerveCenter } from "./components/nerve-center/NerveCenter.js";
 import { TraceLogDrawer } from "./components/nerve-center/TraceLogDrawer.js";
 import { ArtifactsPage } from "./components/pages/ArtifactsPage.js";
 import { SettingsPage } from "./components/pages/SettingsPage.js";
-import { useIceeRuntime } from "./hooks/useIceeRuntime.js";
+import { useOmegaRuntime } from "./hooks/useOmegaRuntime.js";
 import { useLanguage } from "./i18n/LanguageContext.js";
 import {
   mockSubagents,
@@ -59,19 +59,6 @@ const NODE_ID_LABEL_MAP: Record<string, string> = {
   chat:      "AI Response",
 };
 
-/**
- * 节点 ID → 任务概览说明（一句话描述节点职责）
- * 在节点开始执行前显示，帮助用户了解当前步骤意图
- */
-const NODE_ID_PREVIEW_MAP: Record<string, string> = {
-  input:     "接收并传递用户的原始输入",
-  plan:      "将任务分解为 3 个清晰可执行的步骤",
-  decompose: "提取关键技术要点与实现约束条件",
-  execute:   "根据计划生成完整可交付的内容",
-  reflect:   "审查执行结果，整合优化后输出最终版本",
-  output:    "汇总并输出最终结果",
-  chat:      "调用 LLM 生成回复",
-};
 
 /** 创建空白 idle 会话（New Chat 时使用） */
 function createBlankSession(): ConversationSession {
@@ -117,7 +104,7 @@ function parseEdgesFromGraph(graphJson: string): ExecutionEdge[] {
 }
 
 /**
- * App — ICEE Desktop 主应用
+ * App — Omega Desktop 主应用
  *
  * 会话机制：
  *   - 启动时：一个新空白会话 + mock 历史会话
@@ -133,6 +120,17 @@ function parseEdgesFromGraph(graphJson: string): ExecutionEdge[] {
 export function App() {
   // 读取当前语言翻译（LanguageProvider 在 main.tsx 中包裹，此处可直接调用）
   const { t } = useLanguage();
+
+  /** 节点 ID → 任务概览说明（跟随语言切换） */
+  const NODE_ID_PREVIEW_MAP = useMemo<Record<string, string>>(() => ({
+    input:     t.nerveCenter.nodePreviewInput,
+    plan:      t.nerveCenter.nodePreviewPlan,
+    decompose: t.nerveCenter.nodePreviewDecompose,
+    execute:   t.nerveCenter.nodePreviewExecute,
+    reflect:   t.nerveCenter.nodePreviewReflect,
+    output:    t.nerveCenter.nodePreviewOutput,
+    chat:      t.nerveCenter.nodePreviewChat,
+  }), [t]);
 
   const [activeRoute, setActiveRoute] = useState<SidebarRoute>("dashboard");
 
@@ -184,8 +182,20 @@ export function App() {
   // 格式为 provider 的 model 字段字符串，如 "zai-org/glm-4.7-flash"
   const [selectedModel, setSelectedModel] = useState<string | undefined>(undefined);
 
+  // ── 项目上下文（工作目录扫描结果，由主进程推送）────────────────────
+  const [projectContext, setProjectContext] = useState<OmegaProjectContext | null>(null);
+
+  useEffect(() => {
+    // 监听主进程推送的项目上下文
+    const unsub = window.omega?.onProjectContext?.((ctx) => {
+      console.log(`[OMEGA] Project context received: dir=${ctx.workingDir} git=${ctx.isGitRepo}`);
+      setProjectContext(ctx);
+    });
+    return () => { unsub?.(); };
+  }, []);
+
   // ── IPC 桥接（Electron 环境下激活，浏览器 dev 静默跳过）────────
-  const { isElectron, runGraph, cancelRun } = useIceeRuntime({
+  const { isElectron, runGraph, cancelRun } = useOmegaRuntime({
     // 实时追加 TraceLog + 更新 subagents 状态 + 更新 executionEdges 到当前会话
     onStepEvent: useCallback((entry: TraceLogEntry) => {
       // 使用 ref 读取最新 sessionId，避免闭包捕获旧值（session 切换时仍能正确写入）
@@ -397,7 +407,7 @@ export function App() {
 
     // Ollama 状态 → 存入 state，Sidebar 读取显示呼吸灯
     onOllamaStatus: useCallback((healthy: boolean, url: string) => {
-      console.log(`[ICEE] Ollama ${healthy ? "✅" : "❌"} @ ${url}`);
+      console.log(`[OMEGA] Ollama ${healthy ? "✅" : "❌"} @ ${url}`);
       setOllamaConnected(healthy);
     }, []),
 
@@ -412,7 +422,7 @@ export function App() {
      *   done     → type=LLM, status=success, output=finalAnswer
      *   error    → type=LLM, status=error
      */
-    onAgentStep: useCallback((event: import("./hooks/useIceeRuntime.js").AgentStepEvent) => {
+    onAgentStep: useCallback((event: import("./hooks/useOmegaRuntime.js").AgentStepEvent) => {
       const { step } = event;
       const nodeId = `agent_step_${step.index}`;
 
@@ -426,11 +436,11 @@ export function App() {
       };
 
       const nodeLabelMap: Record<typeof step.status, string> = {
-        thinking:  `思考 #${step.index}`,
-        acting:    `工具: ${step.toolName ?? "..."}`,
-        observing: `观察 #${step.index}`,
-        done:      `完成 #${step.index}`,
-        error:     `错误 #${step.index}`,
+        thinking:  `${t.nerveCenter.nodeStepThinking}${step.index}`,
+        acting:    `${t.nerveCenter.nodeStepTool}${step.toolName ?? "..."}`,
+        observing: `${t.nerveCenter.nodeStepObserve}${step.index}`,
+        done:      `${t.nerveCenter.nodeStepDone}${step.index}`,
+        error:     `${t.nerveCenter.nodeStepError}${step.index}`,
       };
 
       const nodeState: SubagentNode["state"] =
@@ -441,17 +451,17 @@ export function App() {
           : {
               status: "running",
               currentTask: step.status === "acting"
-                ? `调用工具: ${step.toolName}`
+                ? `${t.nerveCenter.nodeStepRunningTool}${step.toolName}`
                 : step.status === "observing"
-                ? `观察结果: ${(step.observation ?? "").slice(0, 60)}`
-                : step.thought?.slice(0, 80) ?? "思考中...",
+                ? `${t.nerveCenter.nodeStepObserveResult}${(step.observation ?? "").slice(0, 60)}`
+                : step.thought?.slice(0, 80) ?? t.nerveCenter.nodeStepThinkingIdle,
             };
 
       const taskPreview =
         step.status === "thinking" ? step.thought?.slice(0, 100)
-        : step.status === "acting" ? `调用 ${step.toolName} 工具`
-        : step.status === "observing" ? `获得工具结果，继续分析`
-        : step.status === "done" ? "任务已完成，输出最终答案"
+        : step.status === "acting" ? `${t.nerveCenter.callingTool}${step.toolName}`
+        : step.status === "observing" ? t.nerveCenter.continueAnalyze
+        : step.status === "done" ? t.nerveCenter.taskCompleted
         : undefined;
 
       const newNode: SubagentNode = {
@@ -463,7 +473,7 @@ export function App() {
         state: nodeState,
       };
 
-      console.log(`[ICEE AgentStep] step=${step.index} status=${step.status} nodeId=${nodeId}`);
+      console.log(`[OMEGA AgentStep] step=${step.index} status=${step.status} nodeId=${nodeId}`);
 
       // 使用 ref 读取最新 sessionId
       const sid = activeSessionIdRef.current;
@@ -502,9 +512,9 @@ export function App() {
   // 每次 Run 开始时清空 streamingText，逐 token 追加；Run 完成后停止
   // 使用 activeRunIdRef 过滤 token，防止多 run 并发时 token 混流
   useEffect(() => {
-    if (!isElectron || !window.icee?.onTokenStream) return;
+    if (!isElectron || !window.omega?.onTokenStream) return;
 
-    const unsub = window.icee.onTokenStream(({ token, runId }) => {
+    const unsub = window.omega.onTokenStream(({ token, runId }) => {
       // 只接受当前活跃 run 的 token（过滤残留或并发 token）
       if (runId && activeRunIdRef.current && runId !== activeRunIdRef.current) return;
       setIsStreaming(true);
@@ -524,8 +534,8 @@ export function App() {
 
   // 启动时通过 IPC 拉取历史 Run 记录
   useEffect(() => {
-    if (!isElectron || !window.icee) return;
-    window.icee.listRuns().then((rows) => {
+    if (!isElectron || !window.omega) return;
+    window.omega.listRuns().then((rows) => {
       if (!Array.isArray(rows)) return;
       const mapped: RunHistoryItem[] = rows.map((r: unknown) => {
         const row = r as Record<string, unknown>;
@@ -542,14 +552,14 @@ export function App() {
       });
       setRunHistory(mapped);
     }).catch((e) => {
-      console.warn("[ICEE] listRuns failed:", e);
+      console.warn("[OMEGA] listRuns failed:", e);
     });
   }, [isElectron]);
 
   // 启动时通过 IPC 拉取真实 MCP 工具列表（仅 Electron 环境）
   useEffect(() => {
-    if (!isElectron || !window.icee) return;
-    window.icee.listMcpTools().then((result) => {
+    if (!isElectron || !window.omega) return;
+    window.omega.listMcpTools().then((result) => {
       // 将 IceMcpToolInfo[] 映射为 McpToolData[]
       const mapped: McpToolData[] = (result.tools ?? []).map((tool: { name: string; description?: string; inputSchema?: unknown }) => ({
         id: tool.name,
@@ -561,24 +571,24 @@ export function App() {
         callCount: 0,
       }));
       setMcpToolsData(mapped);
-      console.log(`[ICEE] Loaded ${mapped.length} MCP tools (connected=${result.connected})`);
+      console.log(`[OMEGA] Loaded ${mapped.length} MCP tools (connected=${result.connected})`);
     }).catch((e: unknown) => {
-      console.warn("[ICEE] listMcpTools failed:", e);
+      console.warn("[OMEGA] listMcpTools failed:", e);
     });
   }, [isElectron]);
 
   // 启动时通过 IPC 拉取 Provider 配置（仅 Electron 环境）
   // 注意：放在 App 层而非 SettingsPage，防止路由切换时状态丢失
   useEffect(() => {
-    if (isElectron && window.icee?.listProviders) {
-      window.icee.listProviders()
+    if (isElectron && window.omega?.listProviders) {
+      window.omega.listProviders()
         .then((list) => {
           // 无论 list 是否为空都设置（不 fallback mock，让用户看到真实状态）
           setProviders(list ?? []);
-          console.log(`[ICEE] Loaded ${(list ?? []).length} providers from DB`);
+          console.log(`[OMEGA] Loaded ${(list ?? []).length} providers from DB`);
         })
         .catch((e: unknown) => {
-          console.warn("[ICEE] listProviders failed:", e);
+          console.warn("[OMEGA] listProviders failed:", e);
           setProviders(mockProviders); // 失败时 fallback mock
         });
     } else {
@@ -597,12 +607,12 @@ export function App() {
         : [...prev, config];
     });
     // 2. 写入 DB 并热重载 provider
-    if (!window.icee) return;
+    if (!window.omega) return;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    window.icee.saveProvider(config as any)
+    window.omega.saveProvider(config as any)
       .then((result: { error?: string } | null) => {
         if (result?.error) {
-          console.error("[ICEE] saveProvider error:", result.error);
+          console.error("[OMEGA] saveProvider error:", result.error);
           // 将保存失败错误写入当前 session 的 trace log，让用户在 UI 看到
           setSessions((prev) =>
             prev.map((s) =>
@@ -622,17 +632,17 @@ export function App() {
           );
           return;
         }
-        console.log("[ICEE] Provider saved, reloading...");
-        return window.icee?.reloadProvider();
+        console.log("[OMEGA] Provider saved, reloading...");
+        return window.omega?.reloadProvider();
       })
-      .catch((e: unknown) => console.error("[ICEE] saveProvider failed:", e));
+      .catch((e: unknown) => console.error("[OMEGA] saveProvider failed:", e));
   }, []);
 
   /** 删除 Provider（乐观更新 state，再从 DB 删除）*/
   const handleDeleteProvider = useCallback((id: string) => {
     setProviders((prev) => prev.filter((p) => p.id !== id));
-    window.icee?.deleteProvider(id).catch((e: unknown) =>
-      console.error("[ICEE] deleteProvider failed:", e)
+    window.omega?.deleteProvider(id).catch((e: unknown) =>
+      console.error("[OMEGA] deleteProvider failed:", e)
     );
   }, []);
 
@@ -725,11 +735,13 @@ export function App() {
           task,
           lang,
           ...(attachmentsJson && { attachmentsJson }),
+          // 注入项目上下文（工作目录信息、框架、rules 等），供 Agent 系统提示使用
+          ...(projectContext && { projectContext }),
         });
 
         // 使用 runAgentLoop（若已有则使用，否则降级 runGraph）
-        const runFn = window.icee?.runAgentLoop
-          ? (j: string) => window.icee!.runAgentLoop!(j)
+        const runFn = window.omega?.runAgentLoop
+          ? (j: string) => window.omega!.runAgentLoop!(j)
           : async () => ({ error: "runAgentLoop not available" });
 
         const result = await runFn(taskJson);
@@ -917,7 +929,7 @@ export function App() {
         );
       }, totalDelay);
     },
-    [activeSessionId, isElectron, runGraph, t]
+    [activeSessionId, isElectron, runGraph, t, projectContext]
   ); // handleTaskSubmit
 
   /**
@@ -1090,7 +1102,7 @@ export function App() {
       }, 1500);
     }
     // ── Electron 环境：调用真实 forkRun IPC ──────────────────────
-    if (isElectron && window.icee?.forkRun) {
+    if (isElectron && window.omega?.forkRun) {
       // 获取当前 session 的 runId 和 graphJson
       setSessions((prev) => {
         const session = prev.find((s) => s.id === activeSessionId);
@@ -1102,9 +1114,9 @@ export function App() {
         const inputOverrideJson = JSON.stringify({ query: editedPrompt });
 
         // 异步调用 forkRun，然后更新 session 状态
-        window.icee!.forkRun(parentRunId, stepId, currentGraphJson, inputOverrideJson)
+        window.omega!.forkRun(parentRunId, stepId, currentGraphJson, inputOverrideJson)
           .then((result) => {
-            console.log("[ICEE] forkRun result:", result);
+            console.log("[OMEGA] forkRun result:", result);
             if (result.ok && result.newRunId) {
               // 更新 session 的 runId 为新 fork 出来的 runId
               setSessions((innerPrev) =>
@@ -1122,7 +1134,7 @@ export function App() {
               );
             } else if (result.error) {
               // forkRun 出错，将节点改为 error 状态
-              console.error("[ICEE] forkRun error:", result.error);
+              console.error("[OMEGA] forkRun error:", result.error);
               setSessions((innerPrev) =>
                 innerPrev.map((s) => {
                   if (s.id !== activeSessionId) return s;
@@ -1146,7 +1158,7 @@ export function App() {
             }
           })
           .catch((err: unknown) => {
-            console.error("[ICEE] forkRun IPC failed:", err);
+            console.error("[OMEGA] forkRun IPC failed:", err);
           });
 
         return prev; // 不修改，由上面的异步 setSessions 处理
@@ -1263,6 +1275,8 @@ export function App() {
                 providers={providers}
                 onSaveProvider={handleSaveProvider}
                 onDeleteProvider={handleDeleteProvider}
+                projectContext={projectContext}
+                onProjectContextChange={setProjectContext}
               />
             )}
           </motion.div>
@@ -1296,3 +1310,4 @@ export function App() {
     </div>
   );
 }
+

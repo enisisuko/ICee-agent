@@ -1,5 +1,5 @@
-﻿{
-  "name": "@icee/core",
+{
+  "name": "@omega/core",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -13,10 +13,9 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@icee/shared": "workspace:*",
-    "@icee/db": "workspace:*",
+    "@omega/shared": "workspace:*",
+    "@omega/db": "workspace:*",
     "xstate": "^5.18.0",
-    "pino": "^9.2.0",
     "nanoid": "^5.0.7"
   },
   "devDependencies": {

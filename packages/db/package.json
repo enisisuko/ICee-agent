@@ -1,5 +1,5 @@
-﻿{
-  "name": "@icee/db",
+{
+  "name": "@omega/db",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -13,7 +13,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@icee/shared": "workspace:*"
+    "@omega/shared": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.4.5",

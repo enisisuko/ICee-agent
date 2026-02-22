@@ -67,7 +67,7 @@ export function TaskInputBar({ orchestratorState, onSubmit, onStop, providers = 
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  /** textarea 自动伸缩高度（最多 120px） */
+  /** textarea 自动伸缩高度（最多 80px，压缩初始高度） */
   useEffect(() => {
     const ta = textareaRef.current;
     if (!ta) return;
@@ -189,7 +189,7 @@ export function TaskInputBar({ orchestratorState, onSubmit, onStop, providers = 
                 style={{ color: "rgba(52,211,153,0.60)" }}
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               >
-                Run completed — start a new task below
+                {t.taskInput.completed}
               </motion.p>
             )}
             {orchestratorState === "failed" && (
@@ -198,7 +198,7 @@ export function TaskInputBar({ orchestratorState, onSubmit, onStop, providers = 
                 style={{ color: "rgba(248,113,113,0.60)" }}
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               >
-                Run failed — you can retry with a new task
+                {t.taskInput.failed}
               </motion.p>
             )}
 
@@ -251,7 +251,7 @@ export function TaskInputBar({ orchestratorState, onSubmit, onStop, providers = 
                           color: "rgba(255,255,255,0.70)",
                           fontSize: "9px",
                         }}
-                        title="移除"
+                        title={t.taskInput.removeAttachment}
                       >
                         ✕
                       </button>
@@ -322,7 +322,7 @@ export function TaskInputBar({ orchestratorState, onSubmit, onStop, providers = 
                         transition={{ duration: 0.14 }}
                       >
                         <div className="px-3 py-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                          <p className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.40)" }}>选择模型</p>
+                          <p className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.40)" }}>{t.taskInput.modelSelect}</p>
                         </div>
                         <div className="py-1 max-h-48 overflow-y-auto">
                           {modelOptions.map(opt => {
@@ -392,12 +392,12 @@ export function TaskInputBar({ orchestratorState, onSubmit, onStop, providers = 
                     className="absolute inset-0 flex items-center justify-center z-10 rounded-lg pointer-events-none"
                     style={{ background: "rgba(96,165,250,0.08)" }}
                   >
-                    <p className="text-xs" style={{ color: "rgba(96,165,250,0.80)" }}>松开以添加文件</p>
+                    <p className="text-xs" style={{ color: "rgba(96,165,250,0.80)" }}>{t.taskInput.dropFiles}</p>
                   </div>
                 )}
 
-                {/* 主输入行 */}
-                <div className="flex items-end gap-2 px-4 pt-3 pb-2">
+                {/* 主输入行（压缩内边距：pt-3 pb-2 → pt-2 pb-1.5） */}
+                <div className="flex items-end gap-2 px-3 pt-2 pb-1.5">
                   {/* 前缀提示符 */}
                   <span
                     className="text-xs font-mono flex-shrink-0 mb-0.5 select-none"
@@ -413,7 +413,7 @@ export function TaskInputBar({ orchestratorState, onSubmit, onStop, providers = 
                     style={{
                       color: "rgba(255,255,255,0.80)",
                       minHeight: "24px",
-                      maxHeight: "120px",
+                      maxHeight: "80px",
                       overflowY: "auto",
                     }}
                     placeholder={t.taskInput.placeholder}
@@ -476,7 +476,7 @@ export function TaskInputBar({ orchestratorState, onSubmit, onStop, providers = 
                   </motion.button>
 
                   <span className="text-2xs" style={{ color: "rgba(255,255,255,0.12)" }}>
-                    图片/PDF/txt/json/csv · 最大 20MB
+                    {t.taskInput.attachHint}
                   </span>
 
                   {/* 快捷键提示 */}
@@ -516,13 +516,13 @@ export function TaskInputBar({ orchestratorState, onSubmit, onStop, providers = 
                   transition={{ duration: 0.12 }}
                 >
                   <span className="text-2xs" style={{ color: "rgba(255,255,255,0.18)" }}>
-                    <kbd className="font-mono">Enter</kbd> to run
+                    <kbd className="font-mono">Enter</kbd> {t.taskInput.enterToRun}
                   </span>
                   <span className="text-2xs" style={{ color: "rgba(255,255,255,0.12)" }}>
-                    <kbd className="font-mono">Shift+Enter</kbd> for newline
+                    <kbd className="font-mono">Shift+Enter</kbd> {t.taskInput.shiftEnter}
                   </span>
                   <span className="text-2xs" style={{ color: "rgba(255,255,255,0.10)" }}>
-                    Paste image to attach
+                    {t.taskInput.pasteImage}
                   </span>
                 </motion.div>
               )}

@@ -1,13 +1,13 @@
-import { nanoid } from "nanoid";
+﻿import { nanoid } from "nanoid";
 import type {
   GraphDefinition, Run, Step, StepEvent, WsEvent
-} from "@icee/shared";
+} from "@omega/shared";
 import {
   RunState, NodeState, ErrorType
-} from "@icee/shared";
-import type { RunRepository } from "@icee/db";
-import type { StepRepository } from "@icee/db";
-import type { EventRepository } from "@icee/db";
+} from "@omega/shared";
+import type { RunRepository } from "@omega/db";
+import type { StepRepository } from "@omega/db";
+import type { EventRepository } from "@omega/db";
 import { fromNativeError } from "../errors.js";
 import { createLogger } from "../logger.js";
 import type { GraphNodeRunner, NodeContext } from "../executor/NodeExecutor.js";
@@ -30,7 +30,7 @@ interface RuntimeState {
 }
 
 /**
- * ICEE Graph Runtime
+ * Omega Graph Runtime
  * 负责执行一个完整的 GraphDefinition，管理节点调度、状态持久化、事件广播
  */
 export class GraphRuntime {

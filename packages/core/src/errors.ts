@@ -1,9 +1,9 @@
-import { nanoid } from "nanoid";
-import type { ErrorEnvelope } from "@icee/shared";
-import { ErrorType } from "@icee/shared";
+﻿import { nanoid } from "nanoid";
+import type { ErrorEnvelope } from "@omega/shared";
+import { ErrorType } from "@omega/shared";
 
 /**
- * ICEE 错误工厂 — 将任意错误包装成统一的 ErrorEnvelope
+ * Omega 错误工厂 — 将任意错误包装成统一的 ErrorEnvelope
  */
 export function createErrorEnvelope(
   type: ErrorType,
@@ -43,13 +43,13 @@ export function fromNativeError(
     : { ...options });
 }
 
-/** ICEE 内部运行时错误类 */
-export class IceeError extends Error {
+/** Omega 内部运行时错误类 */
+export class OmegaError extends Error {
   public readonly envelope: ErrorEnvelope;
 
   constructor(envelope: ErrorEnvelope) {
     super(envelope.message);
-    this.name = "IceeError";
+    this.name = "OmegaError";
     this.envelope = envelope;
   }
 }

@@ -1,33 +1,33 @@
-<div align="center">
+﻿<div align="center">
 
-<img src="https://raw.githubusercontent.com/enisisuko/ICee-agent/main/screenshots/icee-ui-demo.png" alt="ICee Agent" width="100%">
+<img src="https://raw.githubusercontent.com/enisisuko/omega-agent/main/screenshots/Omega-ui-demo.png" alt="Omega Agent" width="100%">
 
-# ICee Agent · v1.0.3
+# Omega Agent · v1.0.3
 
 **Local-first AI agent desktop. See every step. Own every step.**
 
 A desktop app that makes AI agents transparent and controllable — watch every decision live, rewind to any step, edit the prompt, and branch from there.
 
-[![CI](https://github.com/enisisuko/ICee-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/enisisuko/ICee-agent/actions/workflows/ci.yml)
+[![CI](https://github.com/enisisuko/omega-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/enisisuko/omega-agent/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/Node-%3E%3D20-brightgreen)](https://nodejs.org/)
 [![Electron](https://img.shields.io/badge/Electron-35-blueviolet)](https://www.electronjs.org/)
 [![Ollama](https://img.shields.io/badge/Ollama-ready-black)](https://ollama.com/)
 [![MCP](https://img.shields.io/badge/MCP-supported-orange)](https://modelcontextprotocol.io/)
 
-[中文文档](README.zh.md) · [Report Bug](https://github.com/enisisuko/ICee-agent/issues) · [Request Feature](https://github.com/enisisuko/ICee-agent/issues)
+[中文文档](README.zh.md) · [Report Bug](https://github.com/enisisuko/omega-agent/issues) · [Request Feature](https://github.com/enisisuko/omega-agent/issues)
 
 </div>
 
 ---
 
-## Why ICee?
+## Why Omega?
 
 Most AI agent tools are black boxes. You submit a task, wait, hope the result is right — and when it isn't, you start over from scratch.
 
-ICee is built differently:
+Omega is built differently:
 
-| | Other agents | ICee Agent |
+| | Other agents | Omega Agent |
 |---|:---:|:---:|
 | See every step live | ✗ | ✓ |
 | Edit a prompt mid-run | ✗ | ✓ |
@@ -37,24 +37,24 @@ ICee is built differently:
 
 ---
 
-## ✨ What makes ICee different
+## ✨ What makes Omega different
 
 ### 1. Step-level rewind & re-execution
 
-<img src="https://raw.githubusercontent.com/enisisuko/ICee-agent/main/screenshots/icee-step-detail.png" alt="Step detail with revert and rerun controls" width="100%">
+<img src="https://raw.githubusercontent.com/enisisuko/omega-agent/main/screenshots/Omega-step-detail.png" alt="Step detail with revert and rerun controls" width="100%">
 
 Every node records its full execution history: the exact prompt sent, the output received, token count, duration, and whether it succeeded or retried. At any point you can:
 
 - **Revert this step** — roll back to a previous attempt within the same node
 - **Rerun from here** — branch the entire workflow forward from this node
 
-<img src="https://raw.githubusercontent.com/enisisuko/ICee-agent/main/screenshots/icee-rerun-modal.png" alt="Rerun modal — edit the prompt before re-executing" width="100%">
+<img src="https://raw.githubusercontent.com/enisisuko/omega-agent/main/screenshots/Omega-rerun-modal.png" alt="Rerun modal — edit the prompt before re-executing" width="100%">
 
 The rerun modal shows the previous input and output side by side for context — then lets you edit the exact prompt before re-executing. Change one word or rewrite the whole thing. Downstream nodes are cleared and re-run from the branch point.
 
 > **Under the hood**: each fork generates a new `runId` in SQLite with `parent_run_id` and `fork_from_step_id` fields. The complete execution lineage is preserved — you can always trace how you got to any result.
 
-<img src="https://raw.githubusercontent.com/enisisuko/ICee-agent/main/screenshots/icee-node-graph.png" alt="Node graph showing step states" width="100%">
+<img src="https://raw.githubusercontent.com/enisisuko/omega-agent/main/screenshots/Omega-node-graph.png" alt="Node graph showing step states" width="100%">
 
 Node states update live: `running` → `done` (green) / `error` (red) → `Step reverted by user` → rerunning. The graph always reflects exactly where the agent is.
 
@@ -62,7 +62,7 @@ Node states update live: `running` → `done` (green) / `error` (red) → `Step 
 
 ### 2. Local-model first — no cloud required
 
-ICee is built from the ground up to run with **local LLMs via Ollama**. No API key, no data leaving your machine, no per-token billing.
+Omega is built from the ground up to run with **local LLMs via Ollama**. No API key, no data leaving your machine, no per-token billing.
 
 > **Completely offline**: Ollama handles the LLM, DuckDuckGo powers web search (no key), and 8 built-in tools cover filesystem, clipboard, and code execution. Every feature works with zero external accounts.
 
@@ -87,7 +87,7 @@ Every feature — streaming output, tool calls, multi-turn memory, context compr
 
 ## What the agent can do
 
-ICee runs a **ReAct loop** (Reason → Act → Observe, up to 20 iterations). The agent autonomously decides which tools to call and when to stop. If it's not making progress, a nudge prompts it to reformat; at the iteration limit, it writes a forced summary at lower temperature.
+Omega runs a **ReAct loop** (Reason → Act → Observe, up to 20 iterations). The agent autonomously decides which tools to call and when to stop. If it's not making progress, a nudge prompts it to reformat; at the iteration limit, it writes a forced summary at lower temperature.
 
 ### 8 built-in tools — zero setup
 
@@ -112,7 +112,7 @@ Connect any [Model Context Protocol](https://modelcontextprotocol.io/) server fo
 
 Shape agent behavior with a two-layer rules system:
 - **Global rules** — stored in SQLite, injected into every session's system prompt
-- **Project rules** — place `.icee/rules.md` in any directory; auto-loaded when working there
+- **Project rules** — place `.Omega/rules.md` in any directory; auto-loaded when working there
 
 ### Agent skills
 
@@ -128,19 +128,19 @@ Shape agent behavior with a two-layer rules system:
 
 ### Option A — Download the installer
 
-Download the latest release for your platform from [Releases](https://github.com/enisisuko/ICee-agent/releases):
-- **Windows**: `ICEE Agent Setup 1.0.3.exe` (NSIS installer)
-- **macOS**: `ICee-Agent-1.0.3.dmg`
+Download the latest release for your platform from [Releases](https://github.com/enisisuko/omega-agent/releases):
+- **Windows**: `Omega Agent Setup 1.0.3.exe` (NSIS installer)
+- **macOS**: `omega-agent-1.0.3.dmg`
 
-Then install [Ollama](https://ollama.com/), pull a model, and launch ICee.
+Then install [Ollama](https://ollama.com/), pull a model, and launch Omega.
 
 ### Option B — Run from source
 
 **Requirements**: [Node.js](https://nodejs.org/) ≥ 20, [pnpm](https://pnpm.io/) ≥ 9, [Ollama](https://ollama.com/)
 
 ```bash
-git clone https://github.com/enisisuko/ICee-agent.git
-cd ICee-agent
+git clone https://github.com/enisisuko/omega-agent.git
+cd omega-agent
 pnpm install
 pnpm desktop
 ```
@@ -160,7 +160,7 @@ Open the app → Settings → add your provider → type a task → watch it run
 pnpm monorepo, powered by Turborepo:
 
 ```
-ICee-agent/
+omega-agent/
 ├── apps/
 │   └── desktop/           # Electron app (main + renderer)
 │       └── src/
@@ -219,4 +219,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for dev setup, how to add a Provider, a n
 
 ## 📄 License
 
-[MIT](LICENSE) © 2026 ICee Agent Contributors
+[MIT](LICENSE) © 2026 Omega Agent Contributors

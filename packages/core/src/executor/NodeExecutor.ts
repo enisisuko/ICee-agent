@@ -1,10 +1,10 @@
-import { nanoid } from "nanoid";
+﻿import { nanoid } from "nanoid";
 import type {
   NodeDefinition, StepEvent, Step, ErrorEnvelope
-} from "@icee/shared";
+} from "@omega/shared";
 import {
   NodeState, NodeType, ErrorType, BackoffStrategy
-} from "@icee/shared";
+} from "@omega/shared";
 import { createErrorEnvelope, fromNativeError } from "../errors.js";
 import { createLogger } from "../logger.js";
 

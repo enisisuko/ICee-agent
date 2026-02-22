@@ -1,6 +1,6 @@
-# Changelog
+﻿# Changelog
 
-All notable changes to ICee Agent will be documented in this file.
+All notable changes to Omega Agent will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
@@ -116,7 +116,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [0.2.8] — 2026-02-20
 
 ### Fixed
-- **SQLite path unified**: `app.setPath("userData", ...)` forces `Roaming\ICeeAgent` in both dev and production
+- **SQLite path unified**: `app.setPath("userData", ...)` forces `Roaming\OmegaAgent` in both dev and production
 - Auto-migration from old DB paths (`Electron\`, `@icee\desktop\`)
 - `OpenAICompatibleProvider` constructor now correctly passes `id`/`name` fields
 - Last surviving provider automatically set as default
@@ -191,3 +191,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `NerveCenter` canvas with real-time node visualization
 - Sidebar with session list
 - Settings page for provider management
+

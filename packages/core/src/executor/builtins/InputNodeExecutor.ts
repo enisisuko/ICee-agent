@@ -1,5 +1,5 @@
-import { NodeType } from "@icee/shared";
-import type { NodeDefinition } from "@icee/shared";
+﻿import { NodeType } from "@omega/shared";
+import type { NodeDefinition } from "@omega/shared";
 import { BaseNodeExecutor } from "../NodeExecutor.js";
 import type { NodeContext, NodeResult } from "../NodeExecutor.js";
 

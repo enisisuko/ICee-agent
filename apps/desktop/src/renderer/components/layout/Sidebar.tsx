@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from "framer-motion";
+﻿import { motion, AnimatePresence } from "framer-motion";
 import type { SidebarRoute, ConversationSession } from "../../types/ui.js";
 import { useLanguage } from "../../i18n/LanguageContext.js";
 import logoUrl from "../../assets/logo.png";
@@ -69,7 +69,7 @@ export function Sidebar({
       <div className="flex items-center px-3 py-3 flex-shrink-0">
         <img
           src={logoUrl}
-          alt="ICee"
+          alt="Omega"
           className="w-full"
           style={{ maxHeight: "36px", objectFit: "contain", objectPosition: "left center" }}
           draggable={false}

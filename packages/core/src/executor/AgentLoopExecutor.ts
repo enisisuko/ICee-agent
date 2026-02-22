@@ -1,6 +1,6 @@
-import { nanoid } from "nanoid";
+﻿import { nanoid } from "nanoid";
 import { createLogger } from "../logger.js";
-import type { AgentLoopConfig, AgentStep } from "@icee/shared";
+import type { AgentLoopConfig, AgentStep } from "@omega/shared";
 import {
   compressContext,
   estimateTokens,
@@ -206,7 +206,10 @@ ${hasTools ? `- **每次响应只能调用一个工具**，调用后等待结果
 
 ### 任务执行规范
 - 逐步完成任务，每一步都基于上一步的实际结果
-- 第一次响应必须先在 <thinking> 中分析任务，制定执行计划
+- **第一次响应（Iteration 1）：只分析和规划，绝对禁止直接生成代码或最终答案内容**
+  在 <thinking> 中完成：① 任务拆解为 3-7 个子步骤 ② 每步使用的工具 ③ 潜在风险
+  然后调用第一个工具（如 web_search、fs_read）开始收集信息，或如无需工具则输出详细执行计划
+- 从第二次响应起：每次只执行一个步骤（一个工具调用 或 输出一段内容），基于上一步实际结果推进
 - 不要假设工具结果，必须等到实际观察到结果后再继续
 - 任务完成后必须使用 <attempt_completion> 提交结果
 
@@ -280,8 +283,11 @@ ${hasTools ? `- **Use only ONE tool per response.** Wait for the result before p
 
 ### Task Execution Rules
 - Work through tasks step-by-step, each step informed by the previous result
-- Your first response MUST analyze the task in <thinking> and plan your approach
-- Complete the task iteratively — do not attempt to answer everything at once
+- **First response (Iteration 1): ONLY analyze and plan — NEVER generate code or final content directly**
+  In <thinking>: ① Break task into 3-7 sub-steps ② Identify tool for each step ③ Flag risks
+  Then call the first tool (e.g. web_search, fs_read) to gather info, OR output a detailed plan if no tools needed
+- From the second response onward: execute ONE step at a time (one tool call OR one content block), based on the actual result of the previous step
+- Do not assume the outcome of any tool use — wait for the actual result
 - End every task with <attempt_completion>
 
 ### Output Rules
@@ -338,9 +344,9 @@ function buildRulesSection(
 
   if (projectRules?.trim()) {
     if (lang === "zh") {
-      sections.push(`## 项目规则（.icee/rules.md）\n\n${projectRules.trim()}`);
+      sections.push(`## 项目规则（.Omega/rules.md）\n\n${projectRules.trim()}`);
     } else {
-      sections.push(`## Project Rules (.icee/rules.md)\n\n${projectRules.trim()}`);
+      sections.push(`## Project Rules (.Omega/rules.md)\n\n${projectRules.trim()}`);
     }
   }
 

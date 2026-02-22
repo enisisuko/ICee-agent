@@ -1,4 +1,4 @@
-import type { LLMRequest, TokenEvent, ProviderInfo } from "@icee/shared";
+﻿import type { LLMRequest, TokenEvent, ProviderInfo } from "@omega/shared";
 
 /**
  * LLM Provider 统一接口

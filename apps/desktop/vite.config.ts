@@ -1,10 +1,10 @@
-import { defineConfig } from "vite";
+﻿import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import electron from "vite-plugin-electron";
 import path from "path";
 
 /**
- * Vite 配置 — ICEE Desktop
+ * Vite 配置 — Omega Desktop
  *
  * 在开发模式下：
  *   - vite-plugin-electron 会同时编译 renderer（React）和 main/preload（Electron）
@@ -26,16 +26,20 @@ export default defineConfig(({ command }) => {
           // Main process
           entry: "src/main/index.ts",
           vite: {
+            // 生产打包时将 NODE_ENV 替换为字符串字面量 "production"
+            // 确保 Electron 打包后 process.env.NODE_ENV !== "production" 判断为 false
+            // 从而加载本地 index.html 而不是尝试连接 localhost:5173
+            define: isDev ? {} : { "process.env.NODE_ENV": JSON.stringify("production") },
             build: {
               outDir: "dist/main",
               rollupOptions: {
                 external: [
                   "electron",
                   // 本地 workspace packages 作为外部依赖（CommonJS 运行时加载）
-                  "@icee/core",
-                  "@icee/db",
-                  "@icee/providers",
-                  "@icee/shared",
+                  "@omega/core",
+                  "@omega/db",
+                  "@omega/providers",
+                  "@omega/shared",
                 ],
               },
             },
@@ -72,3 +76,4 @@ export default defineConfig(({ command }) => {
     },
   };
 });
+

@@ -1,18 +1,18 @@
-import { getDatabase, RunRepository } from "@icee/db";
+﻿import { getDatabase, RunRepository } from "@omega/db";
 
 export async function listCommand(opts: { db: string; limit: number }): Promise<void> {
-  const iceeDb = getDatabase(opts.db);
-  const runRepo = new RunRepository(iceeDb.instance);
+  const omegaDb = getDatabase(opts.db);
+  const runRepo = new RunRepository(omegaDb.instance);
 
   const runs = runRepo.findAll(opts.limit, 0);
 
   if (runs.length === 0) {
-    console.log("[ICEE] No runs found.");
-    iceeDb.close();
+    console.log("[OMEGA] No runs found.");
+    omegaDb.close();
     return;
   }
 
-  console.log(`[ICEE] Recent runs (${runs.length}):\n`);
+  console.log(`[OMEGA] Recent runs (${runs.length}):\n`);
   console.log("RUN ID".padEnd(22) + "GRAPH".padEnd(20) + "STATE".padEnd(12) + "TOKENS".padEnd(10) + "STARTED");
   console.log("─".repeat(80));
 
@@ -26,5 +26,8 @@ export async function listCommand(opts: { db: string; limit: number }): Promise<
     );
   }
 
-  iceeDb.close();
+  omegaDb.close();
 }
+
+
+

@@ -1,8 +1,8 @@
-/**
- * @icee/shared — ICEE 共享 Schema 和类型定义
+﻿/**
+ * @omega/shared — Omega 共享 Schema 和类型定义
  *
  * 所有跨包使用的 Zod schema、类型定义、枚举常量均从此导出
- * 其他包通过 "@icee/shared" 引用，不允许在各自包内重复定义
+ * 其他包通过 "@omega/shared" 引用，不允许在各自包内重复定义
  */
 
 // 枚举常量

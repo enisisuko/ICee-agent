@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Mock 数据 — 用于 UI 开发阶段的演示数据
  * 真实运行时会替换为 WebSocket 推送的实时数据
  */
@@ -191,7 +191,7 @@ export const mockArtifacts: Record<string, ArtifactItem[]> = {
       runId: "run_Bm2sJ9cY",
       label: "QA Response",
       type: "text",
-      content: `Based on the provided documentation, the ICEE Agent Graph Runtime uses an event sourcing architecture where every node execution generates an immutable StepEvent. This allows full trace replay and fork capabilities without additional infrastructure.
+      content: `Based on the provided documentation, the Omega Agent Graph Runtime uses an event sourcing architecture where every node execution generates an immutable StepEvent. This allows full trace replay and fork capabilities without additional infrastructure.
 
 Key features:
 - Append-only event log
@@ -421,7 +421,7 @@ export const mockSessions: ConversationSession[] = [
     subagents: competitorSubagents,
     executionEdges: competitorAnalysisEdges,
     rounds: [],
-    aiOutput: "竞品分析报告已完成。核心发现：Stripe 定价模式以交易抽成为主，Linear 采用席位制，Notion AI 按使用量计费。建议 ICEE 采用混合模式：基础免费 + API 调用量计费。",
+    aiOutput: "竞品分析报告已完成。核心发现：Stripe 定价模式以交易抽成为主，Linear 采用席位制，Notion AI 按使用量计费。建议 Omega 采用混合模式：基础免费 + API 调用量计费。",
   },
   {
     id: "run_Qp7nK4dF",
@@ -450,11 +450,11 @@ export const mockSessions: ConversationSession[] = [
   },
   {
     id: "run_Bm2sJ9cY",
-    title: "Document QA — ICEE Architecture",
+    title: "Document QA — Omega Architecture",
     state: "completed",
     createdAt: "2026-02-20T23:12:08Z",
     orchestrator: {
-      epicTaskName: "Document QA — ICEE Architecture",
+      epicTaskName: "Document QA — Omega Architecture",
       progress: 100,
       totalTokens: 51200,
       totalCostUsd: 0.1536,
@@ -471,7 +471,7 @@ export const mockSessions: ConversationSession[] = [
     subagents: docQaSubagents,
     executionEdges: docQaEdges,
     rounds: [],
-    aiOutput: "ICEE 架构文档问答完成。架构采用 Event Sourcing + 图模型，支持 Replay、Fork 和 Plugin 扩展。详细内容见 docs/architecture.md。",
+    aiOutput: "Omega 架构文档问答完成。架构采用 Event Sourcing + 图模型，支持 Replay、Fork 和 Plugin 扩展。详细内容见 docs/architecture.md。",
   },
 ];
 

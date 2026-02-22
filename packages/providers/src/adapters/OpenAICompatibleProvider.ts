@@ -1,8 +1,9 @@
-import type { LLMRequest, TokenEvent, ProviderInfo } from "@icee/shared";
+﻿import type { LLMRequest, TokenEvent, ProviderInfo } from "@omega/shared";
 import type { LLMProvider } from "../LLMProvider.js";
-import pino from "pino";
+import { createLogger } from "@omega/core";
 
-const log = pino({ name: "OpenAICompatibleProvider" });
+// 使用 @omega/core 的零依赖自定义 logger，避免 pino-pretty 在打包环境崩溃
+const log = createLogger("OpenAICompatibleProvider");
 
 interface OpenAICompatibleConfig {
   id: string;

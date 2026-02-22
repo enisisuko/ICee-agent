@@ -1,33 +1,33 @@
-<div align="center">
+﻿<div align="center">
 
-<img src="https://raw.githubusercontent.com/enisisuko/ICee-agent/main/screenshots/icee-ui-demo.png" alt="ICee Agent" width="100%">
+<img src="https://raw.githubusercontent.com/enisisuko/omega-agent/main/screenshots/Omega-ui-demo.png" alt="Omega Agent" width="100%">
 
-# ICee Agent · v1.0.3
+# Omega Agent · v1.0.3
 
 **本地优先的 AI 智能体桌面应用。每一步可见，每一步可控。**
 
 一款让 AI 智能体变得透明、可控的桌面应用 — 实时观察每次决策，回退到任意步骤，编辑提示词，从那里继续分支执行。
 
-[![CI](https://github.com/enisisuko/ICee-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/enisisuko/ICee-agent/actions/workflows/ci.yml)
+[![CI](https://github.com/enisisuko/omega-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/enisisuko/omega-agent/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/Node-%3E%3D20-brightgreen)](https://nodejs.org/)
 [![Electron](https://img.shields.io/badge/Electron-35-blueviolet)](https://www.electronjs.org/)
 [![Ollama](https://img.shields.io/badge/Ollama-ready-black)](https://ollama.com/)
 [![MCP](https://img.shields.io/badge/MCP-supported-orange)](https://modelcontextprotocol.io/)
 
-[English](README.md) · [提交 Bug](https://github.com/enisisuko/ICee-agent/issues) · [功能请求](https://github.com/enisisuko/ICee-agent/issues)
+[English](README.md) · [提交 Bug](https://github.com/enisisuko/omega-agent/issues) · [功能请求](https://github.com/enisisuko/omega-agent/issues)
 
 </div>
 
 ---
 
-## 为什么选择 ICee？
+## 为什么选择 Omega？
 
 大多数 AI 智能体工具都是黑盒。你提交任务，等待，然后祈祷结果正确 — 出错了就只能重头再来。
 
-ICee 的设计理念完全不同：
+Omega 的设计理念完全不同：
 
-| | 其他智能体工具 | ICee Agent |
+| | 其他智能体工具 | Omega Agent |
 |---|:---:|:---:|
 | 实时查看每一步 | ✗ | ✓ |
 | 运行中编辑提示词 | ✗ | ✓ |
@@ -37,24 +37,24 @@ ICee 的设计理念完全不同：
 
 ---
 
-## ✨ ICee 的独特之处
+## ✨ Omega 的独特之处
 
 ### 1. 步骤级回退与重新执行
 
-<img src="https://raw.githubusercontent.com/enisisuko/ICee-agent/main/screenshots/icee-step-detail.png" alt="步骤详情 — 回退与重跑控件" width="100%">
+<img src="https://raw.githubusercontent.com/enisisuko/omega-agent/main/screenshots/Omega-step-detail.png" alt="步骤详情 — 回退与重跑控件" width="100%">
 
 每个节点都完整记录其执行历史：发送的精确提示词、接收到的输出、Token 数量、耗时，以及是否成功或重试。任意时刻你都可以：
 
 - **回退此步骤** — 回滚到该节点的上一次尝试
 - **从此处重跑** — 从该节点向前分支整个工作流
 
-<img src="https://raw.githubusercontent.com/enisisuko/ICee-agent/main/screenshots/icee-rerun-modal.png" alt="重跑弹窗 — 执行前编辑提示词" width="100%">
+<img src="https://raw.githubusercontent.com/enisisuko/omega-agent/main/screenshots/Omega-rerun-modal.png" alt="重跑弹窗 — 执行前编辑提示词" width="100%">
 
 重跑弹窗并排显示上次的输入和输出以供参考 — 然后允许你在重新执行前编辑精确的提示词。改一个词或整段重写都行。下游节点会被清空，并从分支点重新执行。
 
 > **底层机制**：每次 Fork 在 SQLite 中生成新的 `runId`，保留 `parent_run_id` 和 `fork_from_step_id` 字段。完整的执行血统链被永久保存 — 你始终可以追溯到任何结果是如何产生的。
 
-<img src="https://raw.githubusercontent.com/enisisuko/ICee-agent/main/screenshots/icee-node-graph.png" alt="节点图 — 显示各步骤状态" width="100%">
+<img src="https://raw.githubusercontent.com/enisisuko/omega-agent/main/screenshots/Omega-node-graph.png" alt="节点图 — 显示各步骤状态" width="100%">
 
 节点状态实时更新：`运行中` → `完成`（绿色）/ `错误`（红色）→ `用户已回退步骤` → 重新运行。图形始终精确反映智能体当前所在位置。
 
@@ -62,7 +62,7 @@ ICee 的设计理念完全不同：
 
 ### 2. 本地模型优先 — 无需云端
 
-ICee 从底层开始就为**通过 Ollama 运行本地大模型**而构建。无需 API Key，数据不离本机，没有按 Token 计费。
+Omega 从底层开始就为**通过 Ollama 运行本地大模型**而构建。无需 API Key，数据不离本机，没有按 Token 计费。
 
 > **完全离线**：Ollama 负责大模型，DuckDuckGo 提供网页搜索（无需 Key），8 个内置工具覆盖文件系统、剪贴板和代码执行。所有功能均可在零外部账户的情况下运行。
 
@@ -87,7 +87,7 @@ ollama pull deepseek-r1:8b  # 强推理能力
 
 ## 智能体能做什么
 
-ICee 运行 **ReAct 循环**（推理 → 行动 → 观察，最多 20 次迭代）。智能体自主决定何时调用哪些工具以及何时停止。如果没有进展，Nudge 机制会提示其重新组织；达到迭代上限时，它会以较低温度写出强制总结。
+Omega 运行 **ReAct 循环**（推理 → 行动 → 观察，最多 20 次迭代）。智能体自主决定何时调用哪些工具以及何时停止。如果没有进展，Nudge 机制会提示其重新组织；达到迭代上限时，它会以较低温度写出强制总结。
 
 ### 8 个内置工具 — 零配置
 
@@ -112,7 +112,7 @@ ICee 运行 **ReAct 循环**（推理 → 行动 → 观察，最多 20 次迭�
 
 通过双层规则系统塑造智能体行为：
 - **全局规则** — 存储于 SQLite，注入到每次会话的系统提示词中
-- **项目规则** — 在任意目录放置 `.icee/rules.md`，工作于该目录时自动加载
+- **项目规则** — 在任意目录放置 `.Omega/rules.md`，工作于该目录时自动加载
 
 ### 智能体技能
 
@@ -128,19 +128,19 @@ ICee 运行 **ReAct 循环**（推理 → 行动 → 观察，最多 20 次迭�
 
 ### 方式一 — 下载安装包
 
-从 [Releases](https://github.com/enisisuko/ICee-agent/releases) 下载适合你平台的最新版本：
-- **Windows**: `ICEE Agent Setup 1.0.3.exe`（NSIS 安装程序）
-- **macOS**: `ICee-Agent-1.0.3.dmg`
+从 [Releases](https://github.com/enisisuko/omega-agent/releases) 下载适合你平台的最新版本：
+- **Windows**: `Omega Agent Setup 1.0.3.exe`（NSIS 安装程序）
+- **macOS**: `omega-agent-1.0.3.dmg`
 
-然后安装 [Ollama](https://ollama.com/)，拉取模型，启动 ICee 即可。
+然后安装 [Ollama](https://ollama.com/)，拉取模型，启动 Omega 即可。
 
 ### 方式二 — 源码运行
 
 **环境要求**：[Node.js](https://nodejs.org/) ≥ 20、[pnpm](https://pnpm.io/) ≥ 9、[Ollama](https://ollama.com/)
 
 ```bash
-git clone https://github.com/enisisuko/ICee-agent.git
-cd ICee-agent
+git clone https://github.com/enisisuko/omega-agent.git
+cd omega-agent
 pnpm install
 pnpm desktop
 ```
@@ -160,7 +160,7 @@ ollama pull qwen2.5:7b
 pnpm Monorepo，由 Turborepo 驱动：
 
 ```
-ICee-agent/
+omega-agent/
 ├── apps/
 │   └── desktop/           # Electron 应用（主进程 + 渲染进程）
 │       └── src/
@@ -219,4 +219,4 @@ ICee-agent/
 
 ## 📄 许可证
 
-[MIT](LICENSE) © 2026 ICee Agent Contributors
+[MIT](LICENSE) © 2026 Omega Agent Contributors

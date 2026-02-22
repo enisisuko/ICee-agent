@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import type { OrchestratorData } from "../../types/ui.js";
+import { useLanguage } from "../../i18n/LanguageContext.js";
 
 interface OrchestratorNodeProps {
   data: OrchestratorData;
@@ -26,6 +27,7 @@ function formatCost(n: number): string {
  * 使用 Framer Motion layout 动画实现平滑过渡
  */
 export function OrchestratorNode({ data, collapsed = false }: OrchestratorNodeProps) {
+  const { t } = useLanguage();
   const isActive = data.state === "running" || data.state === "paused";
 
   const statusColor = isActive ? "#60a5fa"
@@ -139,8 +141,8 @@ export function OrchestratorNode({ data, collapsed = false }: OrchestratorNodePr
             backdropFilter: "blur(12px)",
           }}
         >
-          {/* 顶部标题栏 */}
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.06]">
+          {/* 顶部标题栏（压缩 py-3 → py-2） */}
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-white/[0.06]">
             <motion.div
               className="w-1.5 h-1.5 rounded-full flex-shrink-0"
               style={{ background: statusColor }}
@@ -157,17 +159,17 @@ export function OrchestratorNode({ data, collapsed = false }: OrchestratorNodePr
             )}
           </div>
 
-          {/* 任务名称 */}
-          <div className="px-4 pt-4 pb-2">
-            <h2 className="text-base font-medium text-white/88 leading-snug">
+          {/* 任务名称（压缩 pt-4 pb-2 → pt-2 pb-1，text-base → text-sm） */}
+          <div className="px-4 pt-2 pb-1">
+            <h2 className="text-sm font-medium text-white/88 leading-snug">
               {data.epicTaskName}
             </h2>
           </div>
 
-          {/* 进度条 */}
-          <div className="px-4 pb-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-white/40">Progress</span>
+          {/* 进度条（压缩 pb-4 → pb-3，进度条轨道 h-px → 保留，mb-2 → mb-1） */}
+          <div className="px-4 pb-3">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs text-white/40">{t.nerveCenter.progress}</span>
               <span className="text-xs font-medium text-white/60">{data.progress}%</span>
             </div>
             <div
@@ -184,16 +186,16 @@ export function OrchestratorNode({ data, collapsed = false }: OrchestratorNodePr
             </div>
           </div>
 
-          {/* 底部统计 */}
+          {/* 底部统计（行高压缩 h-8 → h-6） */}
           <div
             className="flex items-center gap-0 border-t"
             style={{ borderColor: "rgba(255,255,255,0.06)" }}
           >
-            <StatCell label="Agents" value={String(data.activeAgents)} />
-            <div className="w-px h-8 bg-white/[0.06]" />
-            <StatCell label="Tokens" value={formatTokens(data.totalTokens)} />
-            <div className="w-px h-8 bg-white/[0.06]" />
-            <StatCell label="Cost" value={formatCost(data.totalCostUsd)} />
+            <StatCell label={t.nerveCenter.agents} value={String(data.activeAgents)} />
+            <div className="w-px h-6 bg-white/[0.06]" />
+            <StatCell label={t.nerveCenter.tokens} value={formatTokens(data.totalTokens)} />
+            <div className="w-px h-6 bg-white/[0.06]" />
+            <StatCell label={t.nerveCenter.cost} value={formatCost(data.totalCostUsd)} />
           </div>
         </motion.div>
       )}
@@ -210,7 +212,7 @@ export function OrchestratorNode({ data, collapsed = false }: OrchestratorNodePr
 
 function StatCell({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex-1 flex flex-col items-center py-3 gap-1">
+    <div className="flex-1 flex flex-col items-center py-1.5 gap-0.5">
       <span className="text-2xs text-white/30 tracking-wider uppercase">{label}</span>
       <span className="text-sm font-medium text-white/70">{value}</span>
     </div>

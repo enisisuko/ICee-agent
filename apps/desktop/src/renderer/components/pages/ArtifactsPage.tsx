@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { RunHistoryList } from "../artifacts/RunHistoryList.js";
 import { ArtifactCard } from "../artifacts/ArtifactCard.js";
 import { mockRunHistory, mockArtifacts } from "../../data/mockData.js";
 import type { RunHistoryItem, ArtifactItem } from "../../types/ui.js";
+import { useLanguage } from "../../i18n/LanguageContext.js";
 
 interface ArtifactsPageProps {
   /** App.tsx 维护的实时 Run 历史（Electron 下为真实数据，浏览器 dev 下为空数组） */
@@ -21,8 +22,9 @@ interface ArtifactsPageProps {
  *   2. mockRunHistory（浏览器 dev 演示）
  */
 export function ArtifactsPage({ runHistory }: ArtifactsPageProps) {
+  const { t } = useLanguage();
   // 合并：真实数据优先，补充 mock 历史（仅 dev 环境下）
-  const isElectron = typeof window !== "undefined" && !!window.icee;
+  const isElectron = typeof window !== "undefined" && !!window.omega;
   const combinedRuns: RunHistoryItem[] =
     isElectron
       ? (runHistory ?? [])
@@ -70,12 +72,12 @@ export function ArtifactsPage({ runHistory }: ArtifactsPageProps) {
                 {selectedRun.runId}
               </span>
               <span className="ml-auto text-2xs" style={{ color: "rgba(255,255,255,0.25)" }}>
-                {artifacts.length} artifact{artifacts.length !== 1 ? "s" : ""}
+                {artifacts.length} {t.artifacts.title}
               </span>
             </>
           ) : (
             <span className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>
-              Select a run to view artifacts
+              {t.artifacts.noSelection}
             </span>
           )}
         </div>
@@ -83,17 +85,17 @@ export function ArtifactsPage({ runHistory }: ArtifactsPageProps) {
         {/* 工件列表 */}
         <div className="flex-1 overflow-y-auto p-6">
           {!selectedRunId && (
-            <EmptyState message="Select a run from the left panel" />
+            <EmptyState message={t.artifacts.selectRun} />
           )}
 
           {selectedRunId && artifacts.length === 0 && (
             <EmptyState
               message={
                 selectedRun?.state === "RUNNING"
-                  ? "Run is still in progress..."
+                  ? t.artifacts.inProgress
                   : selectedRun?.state === "FAILED"
-                  ? "Run failed — no artifacts produced"
-                  : "No artifacts found for this run"
+                  ? t.artifacts.failed
+                  : t.artifacts.noArtifacts
               }
               dim={selectedRun?.state === "FAILED"}
             />
@@ -131,7 +133,7 @@ function buildArtifacts(runId: string, run?: RunHistoryItem): ArtifactItem[] {
     result.push({
       id: `${runId}-ai-output`,
       runId,
-      label: "AI Response",
+      label: "AI Response", // 固定英文 label，作为工件标识符使用
       type: "text",
       content: run.aiOutput,
       createdAt: run.startedAt,

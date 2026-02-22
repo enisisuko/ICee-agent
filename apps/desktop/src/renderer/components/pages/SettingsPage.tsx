@@ -1,12 +1,12 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { SettingsSection, ProviderConfig, PluginConfig } from "../../types/ui.js";
 import { mockPlugins } from "../../data/mockData.js";
 import { useLanguage } from "../../i18n/LanguageContext.js";
 import type { Locale } from "../../i18n/translations.js";
 
-// 扩展 SettingsSection 以支持 mcp 和 rules 分组（局部覆盖，不修改 ui.ts 枚举）
-type ExtendedSettingsSection = SettingsSection | "mcp" | "rules";
+// 扩展 SettingsSection 以支持 mcp、rules、workdir 分组（局部覆盖，不修改 ui.ts 枚举）
+type ExtendedSettingsSection = SettingsSection | "mcp" | "rules" | "workdir";
 
 /**
  * SettingsPage — 配置中心页面
@@ -21,10 +21,14 @@ export function SettingsPage({
   providers,
   onSaveProvider,
   onDeleteProvider,
+  projectContext,
+  onProjectContextChange,
 }: {
   providers: ProviderConfig[];
   onSaveProvider: (config: ProviderConfig) => void;
   onDeleteProvider: (id: string) => void;
+  projectContext?: OmegaProjectContext | null;
+  onProjectContextChange?: (ctx: OmegaProjectContext | null) => void;
 }) {
   const [activeSection, setActiveSection] = useState<ExtendedSettingsSection>("providers");
   const [plugins, setPlugins] = useState<PluginConfig[]>(mockPlugins);
@@ -48,13 +52,13 @@ export function SettingsPage({
   // 加载用户 Rules（进入 rules 页时读取）
   useEffect(() => {
     if (activeSection !== "rules") return;
-    if (window.icee?.getRules) {
-      window.icee.getRules().then(data => {
+    if (window.omega?.getRules) {
+      window.omega.getRules().then(data => {
         setUserRules(data.userRules ?? "");
       }).catch(console.error);
     }
-    if (window.icee?.getProjectRules) {
-      window.icee.getProjectRules().then(data => {
+    if (window.omega?.getProjectRules) {
+      window.omega.getProjectRules().then(data => {
         setProjectRulesContent(data.content ?? "");
         setProjectRulesPath(data.path ?? "");
       }).catch(console.error);
@@ -66,8 +70,8 @@ export function SettingsPage({
     setRulesSaving(true);
     setRulesSaveMsg("");
     try {
-      await window.icee?.saveRules?.(userRules);
-      await window.icee?.saveProjectRules?.("", projectRulesContent);
+      await window.omega?.saveRules?.(userRules);
+      await window.omega?.saveProjectRules?.("", projectRulesContent);
       setRulesSaveMsg("saved");
     } catch {
       setRulesSaveMsg("error");
@@ -77,14 +81,14 @@ export function SettingsPage({
     }
   };
 
-  // 加载 MCP 工具列表（listMcpTools 返回单个 IceeMcpStatusResult 对象）
+  // 加载 MCP 工具列表（listMcpTools 返回单个 OmegaMcpStatusResult 对象）
   useEffect(() => {
-    const icee = window.icee as (typeof window.icee & {
+    const omega = window.omega as (typeof window.omega & {
       listMcpTools?: () => Promise<{ connected: boolean; allowedDir: string; tools: Array<{ name: string; description: string }> }>;
     });
-    if (!icee?.listMcpTools) return;
+    if (!omega?.listMcpTools) return;
 
-    icee.listMcpTools().then((data) => {
+    omega.listMcpTools().then((data) => {
       if (data) {
         setMcpConnected(data.connected ?? false);
         setMcpDir(data.allowedDir ?? "");
@@ -128,15 +132,15 @@ export function SettingsPage({
 
   /** 设置 MCP 文件系统根目录 */
   const handleSetMcpDir = () => {
-    const icee = window.icee as (typeof window.icee & { setMcpAllowedDir?: (dir: string) => Promise<{ connected: boolean; tools: Array<{ name: string; description: string }> }> });
-    if (!icee?.setMcpAllowedDir) {
+    const omega = window.omega as (typeof window.omega & { setMcpAllowedDir?: (dir: string) => Promise<{ connected: boolean; tools: Array<{ name: string; description: string }> }> });
+    if (!omega?.setMcpAllowedDir) {
       // 浏览器模式：弹出输入框
       const dir = window.prompt("输入 MCP 文件系统允许目录（绝对路径）：", mcpDir || "C:\\Users");
       if (dir) setMcpDir(dir);
       return;
     }
     // Electron：调用 IPC 打开文件夹选择器
-    icee.setMcpAllowedDir("__dialog__").then((result) => {
+    omega.setMcpAllowedDir("__dialog__").then((result) => {
       if (result) {
         setMcpConnected(result.connected);
         if (Array.isArray(result.tools)) {
@@ -194,6 +198,12 @@ export function SettingsPage({
                 saveMsg={rulesSaveMsg}
               />
             )}
+            {activeSection === "workdir" && (
+              <WorkingDirPanel
+                projectContext={projectContext ?? null}
+                onProjectContextChange={onProjectContextChange}
+              />
+            )}
             {activeSection === "appearance" && (
               <AppearancePanel />
             )}
@@ -237,6 +247,7 @@ function SettingsNav({
     { id: "plugins",    label: t.settings.plugins,    desc: t.settings.pluginsDesc },
     { id: "mcp",        label: t.settings.mcp,        desc: t.settings.mcpDesc },
     { id: "rules",      label: t.settings.rules,      desc: t.settings.rulesDesc },
+    { id: "workdir",    label: t.settings.workdir,     desc: t.settings.workdirDesc },
     { id: "appearance", label: t.settings.appearance, desc: t.settings.appearanceDesc },
   ];
 
@@ -1081,7 +1092,7 @@ function AppearancePanel() {
         >
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.60)" }}>
-              ICEE Agent
+              Omega Agent
             </span>
             <span
               className="text-2xs px-2 py-0.5 rounded-sm font-mono"
@@ -1291,3 +1302,150 @@ function SectionHeader({ title, description }: { title: string; description: str
     </div>
   );
 }
+
+// ─────────────────────────────────────────────
+// WorkingDirPanel — 工作目录设置面板
+// ─────────────────────────────────────────────
+
+function WorkingDirPanel({
+  projectContext,
+  onProjectContextChange,
+}: {
+  projectContext: OmegaProjectContext | null;
+  onProjectContextChange?: ((ctx: OmegaProjectContext | null) => void) | undefined;
+}) {
+  const { t } = useLanguage();
+  const [changing, setChanging] = useState(false);
+  const [changeMsg, setChangeMsg] = useState<"" | "ok" | "canceled" | "error">("");
+
+  const handleChangeDir = async () => {
+    setChanging(true);
+    setChangeMsg("");
+    try {
+      const result = await window.omega?.changeWorkingDir?.();
+      if (result?.canceled) {
+        setChangeMsg("canceled");
+      } else if (result?.error) {
+        setChangeMsg("error");
+      } else if (result?.ok && result.workingDir) {
+        setChangeMsg("ok");
+        // 主进程已通过 omega:project-context 推送新上下文给 App.tsx
+        // 这里不再手动更新，由 App.tsx onProjectContext 统一处理
+      }
+    } catch {
+      setChangeMsg("error");
+    } finally {
+      setChanging(false);
+      setTimeout(() => setChangeMsg(""), 3000);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-6">
+      <SectionHeader title={t.settings.workdirTitle} description={t.settings.workdirSubtitle} />
+
+      {/* 当前路径显示 */}
+      <div className="flex flex-col gap-2">
+        <label className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.50)" }}>
+          {t.settings.workdirCurrent}
+        </label>
+        <div
+          className="rounded-lg px-4 py-3 font-mono text-sm break-all"
+          style={{
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            color: projectContext?.workingDir ? "rgba(255,255,255,0.80)" : "rgba(255,255,255,0.25)",
+          }}
+        >
+          {projectContext?.workingDir ?? t.settings.workdirNotSet}
+        </div>
+      </div>
+
+      {/* 项目信息摘要 */}
+      {projectContext && (
+        <div className="flex flex-col gap-2">
+          <label className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.50)" }}>
+            {t.settings.workdirProjectInfo}
+          </label>
+          <div
+            className="rounded-lg px-4 py-3 flex flex-col gap-1.5"
+            style={{
+              background: "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,255,255,0.06)",
+            }}
+          >
+            {projectContext.projectName && (
+              <WorkdirInfoRow label={t.settings.workdirProjectName} value={projectContext.projectName} />
+            )}
+            <WorkdirInfoRow label={t.settings.workdirGitRepo} value={projectContext.isGitRepo ? t.settings.workdirYes : t.settings.workdirNo} />
+            {projectContext.gitRemote && (
+              <WorkdirInfoRow label="Git Remote" value={projectContext.gitRemote} />
+            )}
+            {projectContext.frameworks.length > 0 && (
+              <WorkdirInfoRow label={t.settings.workdirFrameworks} value={projectContext.frameworks.join(", ")} />
+            )}
+            <WorkdirInfoRow label="TypeScript" value={projectContext.hasTypeScript ? t.settings.workdirYes : t.settings.workdirNo} />
+            <WorkdirInfoRow label="Python" value={projectContext.hasPython ? t.settings.workdirYes : t.settings.workdirNo} />
+            {projectContext.projectRules && (
+              <WorkdirInfoRow label=".omega/rules.md" value={`${t.settings.workdirRulesLoaded}（${projectContext.projectRules.length} ${t.settings.workdirRulesChars}）`} />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 更换按钮 */}
+      <div className="flex items-center gap-3">
+        <motion.button
+          onClick={() => { void handleChangeDir(); }}
+          disabled={changing}
+          className="px-4 py-2 rounded-lg text-sm font-medium"
+          style={{
+            background: "rgba(96,165,250,0.15)",
+            border: "1px solid rgba(96,165,250,0.25)",
+            color: "rgba(96,165,250,0.90)",
+            opacity: changing ? 0.6 : 1,
+            cursor: changing ? "not-allowed" : "pointer",
+          }}
+          whileTap={{ scale: 0.97 }}
+        >
+          {changing ? t.settings.workdirChanging : t.settings.workdirChangeBtn}
+        </motion.button>
+
+        {changeMsg === "ok" && (
+          <span className="text-xs" style={{ color: "rgba(52,211,153,0.85)" }}>
+            {t.settings.workdirChangeOk}
+          </span>
+        )}
+        {changeMsg === "canceled" && (
+          <span className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
+            {t.settings.workdirChangeCanceled}
+          </span>
+        )}
+        {changeMsg === "error" && (
+          <span className="text-xs" style={{ color: "rgba(248,113,113,0.85)" }}>
+            {t.settings.workdirChangeError}
+          </span>
+        )}
+      </div>
+
+      <p className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>
+        {t.settings.workdirHint}
+      </p>
+    </div>
+  );
+}
+
+/** 工作目录面板专用信息行（带固定宽度 label，支持长路径换行） */
+function WorkdirInfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start gap-3">
+      <span className="text-xs flex-shrink-0 w-24" style={{ color: "rgba(255,255,255,0.38)" }}>
+        {label}
+      </span>
+      <span className="text-xs break-all" style={{ color: "rgba(255,255,255,0.65)" }}>
+        {value}
+      </span>
+    </div>
+  );
+}
+

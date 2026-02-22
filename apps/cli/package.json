@@ -1,10 +1,10 @@
 {
-  "name": "@icee/cli",
+  "name": "@omega/cli",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "bin": {
-    "icee": "./dist/index.js"
+    "omega": "./dist/index.js"
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
@@ -13,10 +13,10 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@icee/shared": "workspace:*",
-    "@icee/core": "workspace:*",
-    "@icee/db": "workspace:*",
-    "@icee/providers": "workspace:*",
+    "@omega/shared": "workspace:*",
+    "@omega/core": "workspace:*",
+    "@omega/db": "workspace:*",
+    "@omega/providers": "workspace:*",
     "commander": "^12.1.0",
     "pino": "^9.2.0",
     "pino-pretty": "^11.2.1"

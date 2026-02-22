@@ -1,5 +1,5 @@
-/**
- * ICEE SQLite 数据库 DDL
+﻿/**
+ * Omega SQLite 数据库 DDL
  * 包含所有核心表的建表语句
  *
  * 表清单:
@@ -129,7 +129,7 @@ export const CREATE_PLUGINS = `
     homepage            TEXT,
     repository          TEXT,
     keywords            TEXT,                           -- JSON 数组
-    min_icee_version    TEXT,
+    min_Omega_version    TEXT,
     enabled             INTEGER NOT NULL DEFAULT 1,
     local_path          TEXT    NOT NULL,
     installed_at        TEXT    NOT NULL

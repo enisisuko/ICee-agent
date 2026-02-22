@@ -1,4 +1,4 @@
----
+﻿---
 name: Bug Report
 about: Something isn't working as expected
 title: "[Bug] "
@@ -46,8 +46,9 @@ Paste trace log here
 | Node.js version | e.g. 20.x |
 | LLM Provider | e.g. Ollama 0.6.x / LM Studio 0.3.x / OpenAI |
 | Model | e.g. qwen2.5:7b / llama3.2 |
-| ICee Agent version / commit | e.g. v1.0.0 or commit hash |
+| Omega Agent version / commit | e.g. v1.0.0 or commit hash |
 
 ## Additional Context
 
 Any other context, config, or information about the problem.
+

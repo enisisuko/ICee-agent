@@ -1,8 +1,8 @@
-@tailwind base;
+﻿@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ICEE 全局设计规范 */
+/* Omega 全局设计规范 */
 :root {
   --color-surface-base: #08090c;
   --color-surface-card: #0f1117;

@@ -1,31 +1,31 @@
-import { getDatabase, RunRepository, StepRepository, EventRepository } from "@icee/db";
+﻿import { getDatabase, RunRepository, StepRepository, EventRepository } from "@omega/db";
 
 export async function replayCommand(
   runId: string,
   opts: { db: string; dryRun?: boolean }
 ): Promise<void> {
-  console.log(`[ICEE] Replaying run: ${runId}`);
+  console.log(`[OMEGA] Replaying run: ${runId}`);
 
-  const iceeDb = getDatabase(opts.db);
-  const runRepo = new RunRepository(iceeDb.instance);
-  const stepRepo = new StepRepository(iceeDb.instance);
-  const eventRepo = new EventRepository(iceeDb.instance);
+  const omegaDb = getDatabase(opts.db);
+  const runRepo = new RunRepository(omegaDb.instance);
+  const stepRepo = new StepRepository(omegaDb.instance);
+  const eventRepo = new EventRepository(omegaDb.instance);
 
   // 获取 Run 信息
   const run = runRepo.findById(runId);
   if (!run) {
-    console.error(`[ICEE] Run not found: ${runId}`);
+    console.error(`[OMEGA] Run not found: ${runId}`);
     process.exit(1);
   }
 
-  console.log(`[ICEE] Graph: ${run.graphId} v${run.graphVersion}`);
-  console.log(`[ICEE] State: ${run.state}`);
-  console.log(`[ICEE] Started: ${run.startedAt}`);
-  console.log(`[ICEE] Tokens: ${run.totalTokens} | Cost: $${run.totalCostUsd.toFixed(6)}`);
+  console.log(`[OMEGA] Graph: ${run.graphId} v${run.graphVersion}`);
+  console.log(`[OMEGA] State: ${run.state}`);
+  console.log(`[OMEGA] Started: ${run.startedAt}`);
+  console.log(`[OMEGA] Tokens: ${run.totalTokens} | Cost: $${run.totalCostUsd.toFixed(6)}`);
 
   // 获取所有 Steps
   const steps = stepRepo.findByRunId(runId);
-  console.log(`\n[ICEE] Steps (${steps.length} total):`);
+  console.log(`\n[OMEGA] Steps (${steps.length} total):`);
 
   for (const step of steps) {
     const events = eventRepo.findByStepId(step.stepId);
@@ -46,11 +46,14 @@ export async function replayCommand(
   }
 
   if (opts.dryRun) {
-    console.log("\n[ICEE] Dry-run mode: replay plan printed, no execution.");
+    console.log("\n[OMEGA] Dry-run mode: replay plan printed, no execution.");
   } else {
-    console.log("\n[ICEE] Note: Full replay re-execution is available via the GraphRuntime API.");
-    console.log("[ICEE] Trace events recorded above represent the original execution.");
+    console.log("\n[OMEGA] Note: Full replay re-execution is available via the GraphRuntime API.");
+    console.log("[OMEGA] Trace events recorded above represent the original execution.");
   }
 
-  iceeDb.close();
+  omegaDb.close();
 }
+
+
+

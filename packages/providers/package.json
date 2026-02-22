@@ -1,5 +1,5 @@
-﻿{
-  "name": "@icee/providers",
+{
+  "name": "@omega/providers",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -13,8 +13,8 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@icee/shared": "workspace:*",
-    "pino": "^9.2.0"
+    "@omega/shared": "workspace:*",
+    "@omega/core": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.4.5",

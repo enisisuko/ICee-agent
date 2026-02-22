@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { useRef, useState, useEffect } from "react";
+import { useRef, useEffect } from "react";
+import { useLanguage } from "../../i18n/LanguageContext.js";
 import { OrchestratorNode } from "./OrchestratorNode.js";
 import { SubagentCard } from "./SubagentCard.js";
 import { ResourceSubstrate } from "./ResourceSubstrate.js";
@@ -262,6 +263,7 @@ export function NerveCenter({
   isStreaming = false,
   streamingText = "",
 }: NerveCenterProps) {
+  const { t } = useLanguage();
   // 最新轮的 AI 回复
   const useRoundsMode = rounds.length > 0;
   const latestRound = rounds[rounds.length - 1];
@@ -285,20 +287,9 @@ export function NerveCenter({
 
   const isEmpty = displayEntries.length === 0 && historyRounds.length === 0;
 
-  // ── 滚动监听：超过 100px 时折叠 OrchestratorNode ────────────────
+  // ── 滚动区引用（不再折叠 OrchestratorNode，固定压缩高度展示）────
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null); // 用于自动滚动到底部
-  const [orchestratorCollapsed, setOrchestratorCollapsed] = useState(false);
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const handleScroll = () => {
-      setOrchestratorCollapsed(el.scrollTop > 100);
-    };
-    el.addEventListener("scroll", handleScroll, { passive: true });
-    return () => el.removeEventListener("scroll", handleScroll);
-  }, []);
 
   // ── 自动滚动：displayEntries 增加时滚动到底部 ────────────────────
   const prevEntriesLen = useRef(0);
@@ -315,9 +306,9 @@ export function NerveCenter({
   return (
     <div className="flex flex-col h-full">
 
-      {/* ── Top: Orchestrator Brain（随滚动折叠）+ 输入栏 ── */}
-      <div className="flex-shrink-0 flex flex-col gap-3 px-6 pt-6 pb-3">
-        <OrchestratorNode data={orchestrator} collapsed={orchestratorCollapsed} />
+      {/* ── Top: Orchestrator Brain（固定压缩高度，不再随滚动折叠）+ 输入栏 ── */}
+      <div className="flex-shrink-0 flex flex-col gap-2 px-6 pt-3 pb-2">
+        <OrchestratorNode data={orchestrator} collapsed={false} />
         <TaskInputBar
           orchestratorState={orchestrator.state}
           onSubmit={onTaskSubmit ?? (() => {})}
@@ -351,10 +342,10 @@ export function NerveCenter({
                 transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
               />
               <p className="text-sm text-center" style={{ color: "rgba(255,255,255,0.22)", maxWidth: 240, lineHeight: 1.7 }}>
-                Submit a task above to begin
+                {t.nerveCenter.waitingTask}
               </p>
               <p className="text-xs text-center" style={{ color: "rgba(255,255,255,0.10)", maxWidth: 260 }}>
-                Each agent step will appear here as it executes
+                {t.nerveCenter.waitingSubtitle}
               </p>
             </motion.div>
           )}

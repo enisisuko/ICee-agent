@@ -1,4 +1,4 @@
-import { z } from "zod";
+﻿import { z } from "zod";
 import { PluginType } from "../enums.js";
 
 /**
@@ -45,8 +45,8 @@ export const PluginManifestSchema = z.object({
   repository: z.string().url().optional(),
   /** 关键词 */
   keywords: z.array(z.string()).optional(),
-  /** 最低兼容的 ICEE 版本 */
-  minIceeVersion: z.string().optional(),
+  /** 最低兼容的 Omega 版本 */
+  minOmegaVersion: z.string().optional(),
 });
 export type PluginManifest = z.infer<typeof PluginManifestSchema>;
 

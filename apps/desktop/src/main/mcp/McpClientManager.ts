@@ -1,4 +1,4 @@
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+﻿import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { app } from "electron";
 import path from "path";
@@ -80,7 +80,7 @@ export class McpClientManager {
 
     this.client = new Client(
       {
-        name: "icee-agent",
+        name: "Omega-agent",
         version: "0.1.6",
       },
       {

@@ -1,6 +1,10 @@
 node_modules
 dist
 .turbo
+
+# Electron build output
+apps/desktop/release/
+apps/desktop/logger.js
 *.local
 .env
 .env.*

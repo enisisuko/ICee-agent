@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { NodeStepRecord } from "../../types/ui.js";
+import { useLanguage } from "../../i18n/LanguageContext.js";
 
 interface RerunModalProps {
   /** 是否显示 */
@@ -28,6 +29,7 @@ interface RerunModalProps {
  * 设计：毛玻璃背景遮罩 + 居中卡片，"Quiet Intelligence" 风格
  */
 export function RerunModal({ open, nodeId, nodeLabel, step, onConfirm, onClose }: RerunModalProps) {
+  const { t } = useLanguage();
   const [editedPrompt, setEditedPrompt] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -68,13 +70,15 @@ export function RerunModal({ open, nodeId, nodeLabel, step, onConfirm, onClose }
             onClick={onClose}
           />
 
-          {/* 对话框卡片 */}
+          {/* 对话框卡片：用 inset-0 + flex 居中，避免 transform 与 Framer Motion y 动画冲突 */}
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
+          >
           <motion.div
-            className="fixed z-50 left-1/2 top-1/2 w-[560px] max-w-[90vw]"
-            style={{ transform: "translate(-50%, -50%)" }}
-            initial={{ opacity: 0, scale: 0.94, y: 8 }}
+            className="w-[560px] max-w-[90vw] pointer-events-auto"
+            initial={{ opacity: 0, scale: 0.94, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.94, y: 8 }}
+            exit={{ opacity: 0, scale: 0.94, y: 12 }}
             transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -100,10 +104,10 @@ export function RerunModal({ open, nodeId, nodeLabel, step, onConfirm, onClose }
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold truncate" style={{ color: "rgba(255,255,255,0.85)" }}>
-                    Rerun Node — {nodeLabel}
+                    {t.rerunModal.title} — {nodeLabel}
                   </p>
                   <p className="text-2xs mt-0.5" style={{ color: "rgba(255,255,255,0.30)" }}>
-                    Edit the prompt below to modify what gets sent to the AI
+                    {t.rerunModal.subtitle}
                   </p>
                 </div>
                 {/* 关闭按钮 */}
@@ -123,7 +127,7 @@ export function RerunModal({ open, nodeId, nodeLabel, step, onConfirm, onClose }
                   style={{ borderColor: "rgba(255,255,255,0.05)", background: "rgba(255,255,255,0.02)" }}
                 >
                   <p className="text-2xs mb-2 uppercase tracking-wider font-mono" style={{ color: "rgba(255,255,255,0.25)" }}>
-                    Previous result (step #{step?.index})
+                    {t.rerunModal.previousResult}{step?.index})
                   </p>
                   <div className="grid grid-cols-2 gap-3">
                     {step?.input && (
@@ -156,7 +160,7 @@ export function RerunModal({ open, nodeId, nodeLabel, step, onConfirm, onClose }
               <div className="px-5 py-4">
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-2xs uppercase tracking-wider font-mono" style={{ color: "rgba(255,255,255,0.35)" }}>
-                    Prompt / Input to send
+                    {t.rerunModal.promptLabel}
                   </label>
                   {/* 重置按钮 */}
                   <button
@@ -168,7 +172,7 @@ export function RerunModal({ open, nodeId, nodeLabel, step, onConfirm, onClose }
                     }}
                     onClick={() => setEditedPrompt(step?.prompt ?? step?.input ?? "")}
                   >
-                    Reset
+                    {t.rerunModal.reset}
                   </button>
                 </div>
 
@@ -178,7 +182,7 @@ export function RerunModal({ open, nodeId, nodeLabel, step, onConfirm, onClose }
                   onChange={(e) => setEditedPrompt(e.target.value)}
                   rows={7}
                   className="w-full rounded resize-none outline-none text-xs leading-relaxed font-mono"
-                  placeholder="Enter the prompt or input to send to the node..."
+                  placeholder={t.rerunModal.inputPlaceholder}
                   style={{
                     background: "rgba(255,255,255,0.04)",
                     border: "1px solid rgba(255,255,255,0.10)",
@@ -206,7 +210,7 @@ export function RerunModal({ open, nodeId, nodeLabel, step, onConfirm, onClose }
                 className="flex items-center justify-between px-5 pb-4 pt-1 gap-3"
               >
                 <p className="text-2xs flex-1" style={{ color: "rgba(255,255,255,0.22)" }}>
-                  This will rerun from this node. Downstream nodes will be cleared.
+                  {t.rerunModal.rerunHint}
                 </p>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <button
@@ -218,7 +222,7 @@ export function RerunModal({ open, nodeId, nodeLabel, step, onConfirm, onClose }
                       color: "rgba(255,255,255,0.55)",
                     }}
                   >
-                    Cancel
+                    {t.rerunModal.cancel}
                   </button>
                   <motion.button
                     onClick={handleConfirm}
@@ -233,12 +237,13 @@ export function RerunModal({ open, nodeId, nodeLabel, step, onConfirm, onClose }
                     transition={{ duration: 0.12 }}
                   >
                     <span>↻</span>
-                    <span>Rerun from here</span>
+                    <span>{t.rerunModal.rerun}</span>
                   </motion.button>
                 </div>
               </div>
             </div>
           </motion.div>
+          </div>
         </>
       )}
     </AnimatePresence>

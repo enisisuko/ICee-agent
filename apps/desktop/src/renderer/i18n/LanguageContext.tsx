@@ -1,5 +1,5 @@
-/**
- * ICEE 语言上下文
+﻿/**
+ * Omega 语言上下文
  * 提供全局 locale 状态，支持中文/英文切换，偏好存入 localStorage
  */
 import { createContext, useContext, useState, useCallback } from "react";
@@ -8,7 +8,7 @@ import { translations } from "./translations.js";
 import type { Locale, Translations } from "./translations.js";
 
 /** localStorage 存储键 */
-const STORAGE_KEY = "icee-locale";
+const STORAGE_KEY = "Omega-locale";
 
 /** 从 localStorage 读取初始语言，默认中文 */
 function getInitialLocale(): Locale {
@@ -83,3 +83,4 @@ export function LanguageProvider({ children }: LanguageProviderProps) {
 export function useLanguage(): LanguageContextValue {
   return useContext(LanguageContext);
 }
+

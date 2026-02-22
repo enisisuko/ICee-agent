@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+﻿import { useEffect, useRef, useCallback } from "react";
 import type { TraceLogEntry } from "../types/ui.js";
 
 /** AgentLoop 单步迭代数据（来自 IPC 推送） */
@@ -17,9 +17,9 @@ export interface AgentStepEvent {
 }
 
 /**
- * useIceeRuntime — Electron IPC 运行时桥接 Hook
+ * useOmegaRuntime — Electron IPC 运行时桥接 Hook
  *
- * 仅在 Electron 环境下（window.icee 存在）激活。
+ * 仅在 Electron 环境下（window.omega 存在）激活。
  * 浏览器开发模式下静默跳过，不影响 mock 模拟流程。
  *
  * 功能：
@@ -30,7 +30,7 @@ export interface AgentStepEvent {
  *   - 监听 AgentStep（ReAct 每步迭代，用于节点卡片实时渲染）
  *   - 暴露 runGraph / cancelRun 方法
  */
-export function useIceeRuntime(callbacks: {
+export function useOmegaRuntime(callbacks: {
   onStepEvent: (entry: TraceLogEntry) => void;
   onRunCompleted: (payload: {
     state: string;
@@ -48,12 +48,12 @@ export function useIceeRuntime(callbacks: {
   callbacksRef.current = callbacks;
 
   // 是否处于 Electron 环境
-  const isElectron = typeof window !== "undefined" && !!window.icee;
+  const isElectron = typeof window !== "undefined" && !!window.omega;
 
   useEffect(() => {
-    if (!isElectron || !window.icee) return;
+    if (!isElectron || !window.omega) return;
 
-    const api = window.icee;
+    const api = window.omega;
 
     // 监听 Ollama 状态
     const offOllama = api.onOllamaStatus((payload) => {
@@ -106,8 +106,8 @@ export function useIceeRuntime(callbacks: {
       inputJson: string,
       attachmentsJson?: string
     ): Promise<{ runId?: string; error?: string } | null> => {
-      if (!window.icee) return null;
-      return window.icee.runGraph(graphJson, inputJson, attachmentsJson);
+      if (!window.omega) return null;
+      return window.omega.runGraph(graphJson, inputJson, attachmentsJson);
     },
     []
   );
@@ -116,8 +116,8 @@ export function useIceeRuntime(callbacks: {
    * 取消 Run
    */
   const cancelRun = useCallback(async (runId: string): Promise<void> => {
-    if (!window.icee) return;
-    await window.icee.cancelRun(runId);
+    if (!window.omega) return;
+    await window.omega.cancelRun(runId);
   }, []);
 
   return { isElectron, runGraph, cancelRun };

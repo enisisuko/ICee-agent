@@ -1,5 +1,5 @@
-import type { Step } from "@icee/shared";
-import { NodeState } from "@icee/shared";
+﻿import type { Step } from "@omega/shared";
+import { NodeState } from "@omega/shared";
 
 /**
  * Step Repository — 负责 steps 表的 CRUD 操作

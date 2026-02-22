@@ -1,6 +1,6 @@
-/**
+﻿/**
  * UI 层专用类型定义
- * 与 @icee/shared 的 Schema 类型解耦，专注于 UI 渲染需求
+ * 与 @omega/shared 的 Schema 类型解耦，专注于 UI 渲染需求
  */
 
 /** Subagent 卡片状态机 (discriminated union) */

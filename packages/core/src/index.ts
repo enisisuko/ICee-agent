@@ -1,5 +1,5 @@
-/**
- * @icee/core — ICEE Agent Graph Runtime 核心
+﻿/**
+ * @omega/core — Omega Agent Graph Runtime 核心
  */
 export { GraphRuntime } from "./runtime/GraphRuntime.js";
 export type { RuntimeEventCallback } from "./runtime/GraphRuntime.js";
@@ -30,5 +30,5 @@ export {
 } from "./skills/AgentSkills.js";
 export type { SkillInfo, SearchResult, RetryOptions, FormatOptions } from "./skills/AgentSkills.js";
 
-export { createErrorEnvelope, fromNativeError, IceeError } from "./errors.js";
+export { createErrorEnvelope, fromNativeError, OmegaError } from "./errors.js";
 export { logger, createLogger } from "./logger.js";

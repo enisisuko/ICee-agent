@@ -1,11 +1,11 @@
-import type { Config } from "tailwindcss";
+﻿import type { Config } from "tailwindcss";
 
 const config: Config = {
   content: ["./src/renderer/**/*.{ts,tsx,html}", "./index.html"],
   darkMode: "class",
   theme: {
     extend: {
-      // ICEE 设计系统 Design Tokens
+      // Omega 设计系统 Design Tokens
       colors: {
         // 背景层级
         surface: {
@@ -120,3 +120,4 @@ const config: Config = {
 };
 
 export default config;
+

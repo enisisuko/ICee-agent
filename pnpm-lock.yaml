@@ -23,16 +23,16 @@ importers:
 
   apps/cli:
     dependencies:
-      '@icee/core':
+      '@omega/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@icee/db':
+      '@omega/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@icee/providers':
+      '@omega/providers':
         specifier: workspace:*
         version: link:../../packages/providers
-      '@icee/shared':
+      '@omega/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       commander:
@@ -57,39 +57,33 @@ importers:
 
   apps/desktop:
     dependencies:
-      '@icee/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@icee/db':
-        specifier: workspace:*
-        version: link:../../packages/db
-      '@icee/providers':
-        specifier: workspace:*
-        version: link:../../packages/providers
-      '@icee/shared':
-        specifier: workspace:*
-        version: link:../../packages/shared
       '@modelcontextprotocol/sdk':
         specifier: ^1.26.0
         version: 1.26.0(zod@3.25.76)
       '@modelcontextprotocol/server-filesystem':
         specifier: ^2026.1.14
         version: 2026.1.14(zod@3.25.76)
+      '@omega/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@omega/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@omega/providers':
+        specifier: workspace:*
+        version: link:../../packages/providers
+      '@omega/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
-      electron:
-        specifier: ^35.0.0
-        version: 35.7.5
       framer-motion:
         specifier: ^11.3.0
         version: 11.18.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       lucide-react:
         specifier: ^0.400.0
         version: 0.400.0(react@18.3.1)
-      pino:
-        specifier: ^9.2.0
-        version: 9.14.0
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -124,6 +118,9 @@ importers:
       concurrently:
         specifier: ^8.2.2
         version: 8.2.2
+      electron:
+        specifier: ^35.0.0
+        version: 35.7.5
       electron-builder:
         specifier: ^24.13.3
         version: 24.13.3(electron-builder-squirrel-windows@24.13.3)
@@ -148,18 +145,15 @@ importers:
 
   packages/core:
     dependencies:
-      '@icee/db':
+      '@omega/db':
         specifier: workspace:*
         version: link:../db
-      '@icee/shared':
+      '@omega/shared':
         specifier: workspace:*
         version: link:../shared
       nanoid:
         specifier: ^5.0.7
         version: 5.1.6
-      pino:
-        specifier: ^9.2.0
-        version: 9.14.0
       xstate:
         specifier: ^5.18.0
         version: 5.28.0
@@ -173,7 +167,7 @@ importers:
 
   packages/db:
     dependencies:
-      '@icee/shared':
+      '@omega/shared':
         specifier: workspace:*
         version: link:../shared
     devDependencies:
@@ -186,7 +180,7 @@ importers:
 
   packages/plugins:
     dependencies:
-      '@icee/shared':
+      '@omega/shared':
         specifier: workspace:*
         version: link:../shared
     devDependencies:
@@ -199,12 +193,12 @@ importers:
 
   packages/providers:
     dependencies:
-      '@icee/shared':
+      '@omega/core':
+        specifier: workspace:*
+        version: link:../core
+      '@omega/shared':
         specifier: workspace:*
         version: link:../shared
-      pino:
-        specifier: ^9.2.0
-        version: 9.14.0
     devDependencies:
       typescript:
         specifier: ^5.4.5

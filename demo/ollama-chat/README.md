@@ -1,6 +1,6 @@
-# demo/ollama-chat
+﻿# demo/ollama-chat
 
-最简单的 ICEE 本地 AI 演示：把用户问题发给本地 Ollama，返回 AI 回答。
+最简单的 Omega 本地 AI 演示：把用户问题发给本地 Ollama，返回 AI 回答。
 
 ```
 Input → LLM(ollama/llama3.2) → Output
@@ -39,20 +39,20 @@ node --version   # 必须 v24.x 或更高（node:sqlite 内置模块依赖）
 
 ```bash
 # 方式一：tsx 直接运行（开发模式，无需编译）
-pnpm --filter @icee/cli run dev -- run demo/ollama-chat/graph.json \
+pnpm --filter @omega/cli run dev -- run demo/ollama-chat/graph.json \
   --input '{"query": "用一句话解释什么是 AI Agent"}'
 
 # 方式二：指定中文问题
-pnpm --filter @icee/cli run dev -- run demo/ollama-chat/graph.json \
+pnpm --filter @omega/cli run dev -- run demo/ollama-chat/graph.json \
   --input '{"query": "What is the meaning of life?"}'
 
 # 方式三：自定义 Ollama 地址（如果不在默认端口）
-pnpm --filter @icee/cli run dev -- run demo/ollama-chat/graph.json \
+pnpm --filter @omega/cli run dev -- run demo/ollama-chat/graph.json \
   --input '{"query": "你好"}' \
   --ollama-url http://localhost:11434
 
 # 方式四：强制 mock 模式（无需 Ollama，测试用）
-pnpm --filter @icee/cli run dev -- run demo/ollama-chat/graph.json \
+pnpm --filter @omega/cli run dev -- run demo/ollama-chat/graph.json \
   --input '{"query": "hello"}' \
   --mock
 ```
@@ -76,32 +76,32 @@ pnpm --filter @icee/cli run dev -- run demo/ollama-chat/graph.json \
 ## 期望输出示例
 
 ```
-[ICEE] ─────────────────────────────────────
-[ICEE] ICEE Agent Graph Runtime v0.1
-[ICEE] ─────────────────────────────────────
-[ICEE] Loading graph: demo/ollama-chat/graph.json
-[ICEE] Graph: "Ollama Chat" (3 nodes, 2 edges)
-[ICEE] Checking Ollama at http://localhost:11434...
-[ICEE] ✅ Ollama is available. Models: llama3.2:latest
-[ICEE] Database: /path/to/icee.db
-[ICEE] ▶ Run started: run_abc123
-[ICEE]   → [INPUT] User Query
-[ICEE]   ✓ input completed
-[ICEE]   → [LLM] Ollama LLM
-[ICEE]   🤖 LLM call → ollama/llama3.2
-[ICEE]      Prompt (29 chars)
-[ICEE]      ✓ 84 tokens
-[ICEE]      Output: AI Agent 是一种能够自主感知环境、做出决策并执行行动的人工智能系统…
-[ICEE]   ✓ chat completed
-[ICEE]   → [OUTPUT] Response
-[ICEE]   ✓ output completed
-[ICEE] ─────────────────────────────────────
-[ICEE] ✅ Run COMPLETED
-[ICEE]    Duration: 3421ms
-[ICEE]    Tokens:   84
-[ICEE]    Cost:     $0.000000
-[ICEE] ─────────────────────────────────────
-[ICEE] Total wall time: 3650ms
+[OMEGA] ─────────────────────────────────────
+[OMEGA] Omega Agent Graph Runtime v0.1
+[OMEGA] ─────────────────────────────────────
+[OMEGA] Loading graph: demo/ollama-chat/graph.json
+[OMEGA] Graph: "Ollama Chat" (3 nodes, 2 edges)
+[OMEGA] Checking Ollama at http://localhost:11434...
+[OMEGA] ✅ Ollama is available. Models: llama3.2:latest
+[OMEGA] Database: /path/to/omega.db
+[OMEGA] ▶ Run started: run_abc123
+[OMEGA]   → [INPUT] User Query
+[OMEGA]   ✓ input completed
+[OMEGA]   → [LLM] Ollama LLM
+[OMEGA]   🤖 LLM call → ollama/llama3.2
+[OMEGA]      Prompt (29 chars)
+[OMEGA]      ✓ 84 tokens
+[OMEGA]      Output: AI Agent 是一种能够自主感知环境、做出决策并执行行动的人工智能系统…
+[OMEGA]   ✓ chat completed
+[OMEGA]   → [OUTPUT] Response
+[OMEGA]   ✓ output completed
+[OMEGA] ─────────────────────────────────────
+[OMEGA] ✅ Run COMPLETED
+[OMEGA]    Duration: 3421ms
+[OMEGA]    Tokens:   84
+[OMEGA]    Cost:     $0.000000
+[OMEGA] ─────────────────────────────────────
+[OMEGA] Total wall time: 3650ms
 ```
 
 ---
@@ -111,7 +111,7 @@ pnpm --filter @icee/cli run dev -- run demo/ollama-chat/graph.json \
 所有 run 都持久化到 SQLite，可以用 list 命令查看：
 
 ```bash
-pnpm --filter @icee/cli run dev -- list
+pnpm --filter @omega/cli run dev -- list
 ```
 
 ---
@@ -121,7 +121,9 @@ pnpm --filter @icee/cli run dev -- list
 CLI 会自动降级为 mock 模式并打印警告：
 
 ```
-[ICEE] ⚠️  Ollama not reachable at http://localhost:11434
-[ICEE] ⚠️  Falling back to mock mode. Start Ollama and rerun to use real AI.
-[ICEE] ⚠️  Hint: ollama serve  /  ollama pull llama3.2
+[OMEGA] ⚠️  Ollama not reachable at http://localhost:11434
+[OMEGA] ⚠️  Falling back to mock mode. Start Ollama and rerun to use real AI.
+[OMEGA] ⚠️  Hint: ollama serve  /  ollama pull llama3.2
 ```
+
+

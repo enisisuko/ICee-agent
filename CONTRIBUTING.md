@@ -1,4 +1,4 @@
-# Contributing to ICee Agent
+﻿# Contributing to Omega Agent
 
 Thank you for your interest in contributing! This guide will help you get up and running quickly.
 
@@ -32,8 +32,8 @@ Thank you for your interest in contributing! This guide will help you get up and
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/enisisuko/ICee-agent.git
-cd ICee-agent
+git clone https://github.com/enisisuko/Omega-agent.git
+cd Omega-agent
 
 # 2. Install all dependencies (monorepo-wide)
 pnpm install
@@ -58,7 +58,7 @@ The app uses **Vite HMR** for the renderer — changes to React components reloa
 ## Project Structure
 
 ```
-ICee-agent/
+Omega-agent/
 ├── apps/desktop/        # Electron app (main + renderer + preload)
 ├── packages/
 │   ├── core/            # Agent runtime — AgentLoopExecutor, GraphRuntime, executors
@@ -71,8 +71,8 @@ ICee-agent/
 Each package has its own `package.json` and is linked via pnpm workspace. Import them as:
 
 ```ts
-import { GraphRuntime } from '@icee/core'
-import { db } from '@icee/db'
+import { GraphRuntime } from '@Omega/core'
+import { db } from '@Omega/db'
 ```
 
 ---
@@ -226,4 +226,5 @@ We review PRs as time allows. For large changes, please open an issue first to d
 
 ## Questions?
 
-Open an [issue](https://github.com/enisisuko/ICee-agent/issues) or start a [discussion](https://github.com/enisisuko/ICee-agent/discussions).
+Open an [issue](https://github.com/enisisuko/Omega-agent/issues) or start a [discussion](https://github.com/enisisuko/Omega-agent/discussions).
+

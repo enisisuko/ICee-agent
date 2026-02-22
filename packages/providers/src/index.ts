@@ -1,5 +1,5 @@
-/**
- * @icee/providers — ICEE LLM Provider 适配层
+﻿/**
+ * @omega/providers — Omega LLM Provider 适配层
  */
 export type { LLMProvider } from "./LLMProvider.js";
 export { ProviderRegistry } from "./LLMProvider.js";

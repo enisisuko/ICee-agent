@@ -1,6 +1,8 @@
 {
-  "name": "@icee/desktop",
-  "version": "0.1.0",
+  "name": "@omega/desktop",
+  "version": "1.0.3",
+  "description": "Omega Agent — Trace-First AI Agent Desktop",
+  "author": "Omega Team",
   "private": true,
   "type": "module",
   "main": "dist/main/index.js",
@@ -11,13 +13,14 @@
     "electron:dev": "vite",
     "electron:build": "vite build && electron-builder --win",
     "electron:build:dir": "vite build && electron-builder --win --dir",
+    "electron:build:full": "pnpm --filter @omega/shared build && pnpm --filter @omega/db build && pnpm --filter @omega/providers build && pnpm --filter @omega/core build && electron-rebuild -f -w better-sqlite3 && vite build && electron-builder --win",
     "test": "vitest run",
     "lint": "tsc --noEmit"
   },
   "build": {
-    "appId": "com.icee.agent",
-    "productName": "ICEE Agent",
-    "copyright": "Copyright © 2026 ICEE",
+    "appId": "com.omega.agent",
+    "productName": "Omega Agent",
+    "copyright": "Copyright © 2026 Omega",
     "directories": {
       "output": "release",
       "buildResources": "build-resources"
@@ -40,15 +43,32 @@
           "arch": ["x64"]
         }
       ],
-      "icon": "build-resources/icon.ico"
+      "icon": "build-resources/icon.png"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "ICEE Agent",
-      "installerHeaderIcon": "build-resources/icon.ico"
+      "shortcutName": "Omega Agent"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "icon": "build-resources/icon.png"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "build-resources/icon.png"
     },
     "extraResources": [
       {
@@ -59,17 +79,15 @@
     ]
   },
   "dependencies": {
-    "@icee/core": "workspace:*",
-    "@icee/db": "workspace:*",
-    "@icee/providers": "workspace:*",
-    "@icee/shared": "workspace:*",
+    "@omega/core": "workspace:*",
+    "@omega/db": "workspace:*",
+    "@omega/providers": "workspace:*",
+    "@omega/shared": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.26.0",
     "@modelcontextprotocol/server-filesystem": "^2026.1.14",
     "clsx": "^2.1.1",
-    "electron": "^35.0.0",
     "framer-motion": "^11.3.0",
     "lucide-react": "^0.400.0",
-    "pino": "^9.2.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "reactflow": "^11.11.4",
@@ -83,6 +101,7 @@
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.19",
     "concurrently": "^8.2.2",
+    "electron": "^35.0.0",
     "electron-builder": "^24.13.3",
     "postcss": "^8.4.39",
     "tailwindcss": "^3.4.6",

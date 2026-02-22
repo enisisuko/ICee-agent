@@ -1,4 +1,4 @@
-// Node.js 24+ 内置 SQLite，无需额外依赖
+﻿// Node.js 24+ 内置 SQLite，无需额外依赖
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore — node:sqlite 在 Node 24 可用，TypeScript types 尚未同步
 import { DatabaseSync } from "node:sqlite";
@@ -7,10 +7,10 @@ import fs from "fs";
 import { ALL_CREATE_STATEMENTS, CREATE_INDEXES } from "./schema.js";
 
 /**
- * ICEE 数据库连接管理器
+ * Omega 数据库连接管理器
  * 使用 Node.js 24 内置 SQLite (node:sqlite)，零额外依赖
  */
-export class IceeDatabase {
+export class OmegaDatabase {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private db: any;
 
@@ -48,13 +48,13 @@ export class IceeDatabase {
     if (versionCheck.count === 0) {
       this.db.prepare(
         "INSERT INTO schema_versions (version, applied_at, description) VALUES (?, ?, ?)"
-      ).run("0.1.0", new Date().toISOString(), "Initial ICEE schema");
+      ).run("0.1.0", new Date().toISOString(), "Initial Omega schema");
     }
 
     // 迁移：为已有数据库补充 providers 表缺少的列（ALTER TABLE 在列已存在时会抛错，静默忽略即可）
     this.migrateProviders();
 
-    console.log("[IceeDatabase] Database initialized successfully");
+    console.log("[OmegaDatabase] Database initialized successfully");
   }
 
   /**
@@ -70,15 +70,15 @@ export class IceeDatabase {
     for (const m of migrations) {
       try {
         this.db.exec(m.sql);
-        console.log(`[IceeDatabase] Migration applied: providers.${m.col} column added`);
+        console.log(`[OmegaDatabase] Migration applied: providers.${m.col} column added`);
       } catch (e) {
         const msg = (e as Error).message ?? "";
         if (msg.includes("duplicate column")) {
           // 列已存在，正常情况，静默跳过（不记录 warn，避免日志噪音）
-          console.log(`[IceeDatabase] Migration skipped (already exists): providers.${m.col}`);
+          console.log(`[OmegaDatabase] Migration skipped (already exists): providers.${m.col}`);
         } else {
           // 真正的迁移失败（磁盘满、权限问题等），记录完整错误
-          console.error(`[IceeDatabase] Migration FAILED for providers.${m.col}:`, e);
+          console.error(`[OmegaDatabase] Migration FAILED for providers.${m.col}:`, e);
         }
       }
     }
@@ -93,7 +93,7 @@ export class IceeDatabase {
   /** 关闭数据库 */
   close(): void {
     this.db.close();
-    console.log("[IceeDatabase] Database connection closed");
+    console.log("[OmegaDatabase] Database connection closed");
   }
 
   /** 获取当前 schema 版本 */
@@ -122,14 +122,14 @@ export class IceeDatabase {
 }
 
 /** 单例数据库实例管理 */
-let _dbInstance: IceeDatabase | null = null;
+let _dbInstance: OmegaDatabase | null = null;
 
-export function getDatabase(dbPath?: string): IceeDatabase {
+export function getDatabase(dbPath?: string): OmegaDatabase {
   if (!_dbInstance) {
     if (!dbPath) {
       throw new Error("Database path is required for first initialization");
     }
-    _dbInstance = new IceeDatabase(dbPath);
+    _dbInstance = new OmegaDatabase(dbPath);
   }
   return _dbInstance;
 }

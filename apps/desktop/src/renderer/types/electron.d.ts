@@ -1,26 +1,31 @@
 /**
- * window.icee — Electron contextBridge 暴露的 API 类型声明 (v0.3.5)
+ * window.omega — Electron contextBridge 暴露的 API 类型声明 (v1.1.0)
  * 与 src/preload/index.ts 保持同步
  *
  * v0.3.5 新增:
  *   - onTokenStream: LLM 流式 token 推送
  *   - getRules / saveRules: 用户全局 Rules
- *   - getProjectRules / saveProjectRules: 项目级 .icee/rules.md
+ *   - getProjectRules / saveProjectRules: 项目级 .omega/rules.md
+ *
+ * v1.1.0 新增:
+ *   - onProjectContext: 监听主进程扫描工作目录后的项目上下文推送
+ *   - changeWorkingDir: 弹出文件夹选择器更换工作目录
+ *   - getWorkingDir: 读取当前保存的工作目录
  */
 
-interface IceeStepEventPayload {
+interface OmegaStepEventPayload {
   type: "SYSTEM" | "AGENT_ACT" | "MCP_CALL" | "SKILL_MATCH";
   message: string;
   nodeId?: string;
   details?: string;
 }
 
-interface IceeOllamaStatusPayload {
+interface OmegaOllamaStatusPayload {
   healthy: boolean;
   url: string;
 }
 
-interface IceeRunCompletedPayload {
+interface OmegaRunCompletedPayload {
   state: string;
   durationMs: number;
   totalTokens: number;
@@ -28,18 +33,18 @@ interface IceeRunCompletedPayload {
   output?: unknown;
 }
 
-interface IceeTokenUpdatePayload {
+interface OmegaTokenUpdatePayload {
   tokens: number;
   costUsd: number;
 }
 
-interface IceeRunGraphResult {
+interface OmegaRunGraphResult {
   runId?: string;
   error?: string;
 }
 
 /** Provider 配置（含 API Key，仅用于 IPC 传递） */
-interface IceeProviderConfig {
+interface OmegaProviderConfig {
   id: string;
   name: string;
   type: "openai-compatible" | "ollama" | "lm-studio" | "custom";
@@ -51,22 +56,22 @@ interface IceeProviderConfig {
 }
 
 /** MCP 工具信息 */
-interface IceMcpToolInfo {
+interface OmegaMcpToolInfo {
   name: string;
   description: string;
   inputSchema?: unknown;
 }
 
 /** MCP 状态（包含工具列表和连接状态） */
-interface IceeMcpStatusResult {
+interface OmegaMcpStatusResult {
   connected: boolean;
   allowedDir: string;
-  tools: IceMcpToolInfo[];
+  tools: OmegaMcpToolInfo[];
   error?: string;
 }
 
 /** AgentLoop 单步迭代数据 */
-interface IceeAgentStepPayload {
+interface OmegaAgentStepPayload {
   index: number;
   thought?: string;
   toolName?: string;
@@ -77,17 +82,17 @@ interface IceeAgentStepPayload {
   tokens: number;
 }
 
-interface IceeApi {
+interface OmegaApi {
   // ── Graph 运行时 ─────────────────────────────
 
   /** 运行一个 Graph（attachmentsJson 为附件数组的 JSON 字符串） */
-  runGraph(graphJson: string, inputJson: string, attachmentsJson?: string): Promise<IceeRunGraphResult>;
+  runGraph(graphJson: string, inputJson: string, attachmentsJson?: string): Promise<OmegaRunGraphResult>;
 
   /**
    * 运行 ReAct 动态 Agent 循环（Cline 风格，步骤数由 LLM 自主决定）
    * taskJson: { task, lang?, availableTools?, attachmentsJson? }
    */
-  runAgentLoop?(taskJson: string): Promise<IceeRunGraphResult>;
+  runAgentLoop?(taskJson: string): Promise<OmegaRunGraphResult>;
 
   /** 取消正在运行的 Run */
   cancelRun(runId: string): Promise<{ ok: boolean }>;
@@ -107,33 +112,33 @@ interface IceeApi {
   // ── Provider CRUD ────────────────────────────
 
   /** 列出所有已配置的 Provider */
-  listProviders(): Promise<IceeProviderConfig[]>;
+  listProviders(): Promise<OmegaProviderConfig[]>;
   /** 保存（新增或更新）Provider 配置 */
-  saveProvider(config: IceeProviderConfig): Promise<{ ok?: boolean; error?: string }>;
+  saveProvider(config: OmegaProviderConfig): Promise<{ ok?: boolean; error?: string }>;
   /** 删除 Provider 配置 */
   deleteProvider(id: string): Promise<{ ok?: boolean; error?: string }>;
 
   // ── MCP 工具管理 ──────────────────────────────
 
   /** 获取 MCP 工具列表及连接状态 */
-  listMcpTools(): Promise<IceeMcpStatusResult>;
+  listMcpTools(): Promise<OmegaMcpStatusResult>;
   /** 设置 MCP 文件系统允许目录（"__dialog__" 打开文件夹选择器） */
-  setMcpAllowedDir(dirOrDialog: string): Promise<IceeMcpStatusResult>;
+  setMcpAllowedDir(dirOrDialog: string): Promise<OmegaMcpStatusResult>;
   /** 重载 Provider（保存配置后触发主进程重新健康检查并推送 ollama-status 事件） */
   reloadProvider(): Promise<{ ok?: boolean; healthy?: boolean; url?: string; error?: string; message?: string }>;
 
   // ── 事件订阅 ──────────────────────────────────
 
   /** 监听 Ollama 状态（返回取消函数） */
-  onOllamaStatus(callback: (payload: IceeOllamaStatusPayload) => void): () => void;
+  onOllamaStatus(callback: (payload: OmegaOllamaStatusPayload) => void): () => void;
   /** 监听 StepEvent（返回取消函数） */
-  onStepEvent(callback: (payload: IceeStepEventPayload) => void): () => void;
+  onStepEvent(callback: (payload: OmegaStepEventPayload) => void): () => void;
   /** 监听 Run 完成（返回取消函数） */
-  onRunCompleted(callback: (payload: IceeRunCompletedPayload) => void): () => void;
+  onRunCompleted(callback: (payload: OmegaRunCompletedPayload) => void): () => void;
   /** 监听 Token 用量更新（返回取消函数） */
-  onTokenUpdate(callback: (payload: IceeTokenUpdatePayload) => void): () => void;
+  onTokenUpdate(callback: (payload: OmegaTokenUpdatePayload) => void): () => void;
   /** 监听 AgentLoop 迭代步骤（ReAct 每步回调，用于节点卡片实时渲染） */
-  onAgentStep?(callback: (payload: { runId: string; step: IceeAgentStepPayload }) => void): () => void;
+  onAgentStep?(callback: (payload: { runId: string; step: OmegaAgentStepPayload }) => void): () => void;
 
   /** 监听 LLM 流式 token（打字机效果，每 token 一次回调） */
   onTokenStream?(callback: (payload: { token: string; runId: string }) => void): () => void;
@@ -144,16 +149,38 @@ interface IceeApi {
   getRules?(): Promise<{ userRules: string }>;
   /** 保存用户全局 Rules */
   saveRules?(userRules: string): Promise<{ ok?: boolean; error?: string }>;
-  /** 获取项目级 Rules（.icee/rules.md） */
+  /** 获取项目级 Rules（.omega/rules.md） */
   getProjectRules?(dirPath?: string): Promise<{ content: string; path: string; error?: string }>;
-  /** 保存项目级 Rules 到 .icee/rules.md */
+  /** 保存项目级 Rules 到 .omega/rules.md */
   saveProjectRules?(dirPath: string, content: string): Promise<{ ok?: boolean; path?: string; error?: string }>;
+
+  // ── 工作目录管理 ──────────────────────────────
+
+  /** 监听项目上下文推送（main 进程扫描工作目录后发送） */
+  onProjectContext?(callback: (ctx: OmegaProjectContext) => void): () => void;
+  /** 弹出文件夹选择器更换工作目录（main 自动推送新 omega:project-context） */
+  changeWorkingDir?(): Promise<{ ok?: boolean; canceled?: boolean; workingDir?: string; error?: string }>;
+  /** 读取当前保存的工作目录 */
+  getWorkingDir?(): Promise<{ workingDir: string | null; error?: string }>;
 }
 
 declare global {
   interface Window {
-    /** ICEE Electron API（仅 Electron 环境下可用；浏览器 dev 模式下为 undefined） */
-    icee?: IceeApi;
+    /** Omega Electron API（仅 Electron 环境下可用；浏览器 dev 模式下为 undefined） */
+    omega?: OmegaApi;
+  }
+
+  /** 项目上下文（由主进程扫描工作目录后生成）— 全局类型，供 App/SettingsPage 使用 */
+  interface OmegaProjectContext {
+    workingDir: string;
+    isGitRepo: boolean;
+    gitRemote?: string;
+    projectName?: string;
+    frameworks: string[];
+    hasTypeScript: boolean;
+    hasPython: boolean;
+    projectRules?: string;
+    gitignorePatterns: string[];
   }
 }
 

@@ -1,6 +1,6 @@
-# Demo: Search & Summarize
+﻿# Demo: Search & Summarize
 
-这是 ICEE 的参考示例 Graph，展示完整的四节点链路：
+这是 Omega 的参考示例 Graph，展示完整的四节点链路：
 
 ```
 InputNode → SearchToolNode → SummarizeLLMNode → OutputNode
@@ -36,3 +36,6 @@ icee replay <runId>
 - Token 消耗和成本
 
 可通过 `icee replay <runId>` 完整回放。
+
+
+

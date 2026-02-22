@@ -1,13 +1,13 @@
-import fs from "fs";
+﻿import fs from "fs";
 import path from "path";
-import { GraphDefinitionSchema } from "@icee/shared";
-import { getDatabase, RunRepository, StepRepository, EventRepository } from "@icee/db";
+import { GraphDefinitionSchema } from "@omega/shared";
+import { getDatabase, RunRepository, StepRepository, EventRepository } from "@omega/db";
 import {
   GraphRuntime, GraphNodeRunner, NodeExecutorRegistry,
   InputNodeExecutor, OutputNodeExecutor, LLMNodeExecutor,
   ToolNodeExecutor, MemoryNodeExecutor, ReflectionNodeExecutor, PlanningNodeExecutor
-} from "@icee/core";
-import { OllamaProvider } from "@icee/providers";
+} from "@omega/core";
+import { OllamaProvider } from "@omega/providers";
 
 /** run 命令选项类型 */
 interface RunOptions {
@@ -22,7 +22,7 @@ interface RunOptions {
 }
 
 /**
- * icee run <graphFile> 命令实现
+ * omega run <graphFile> 命令实现
  *
  * 默认行为：
  *   - 检查 Ollama 是否可用，可用则接入真实 LLM
@@ -40,15 +40,15 @@ export async function runCommand(
 ): Promise<void> {
   const ollamaBaseUrl = opts.ollamaUrl ?? "http://localhost:11434";
 
-  console.log(`[ICEE] ─────────────────────────────────────`);
-  console.log(`[ICEE] ICEE Agent Graph Runtime v0.1`);
-  console.log(`[ICEE] ─────────────────────────────────────`);
-  console.log(`[ICEE] Loading graph: ${graphFile}`);
+  console.log(`[OMEGA] ─────────────────────────────────────`);
+  console.log(`[OMEGA] OMEGA Agent Graph Runtime v0.1`);
+  console.log(`[OMEGA] ─────────────────────────────────────`);
+  console.log(`[OMEGA] Loading graph: ${graphFile}`);
 
   // ── 解析 graph 文件 ──────────────────────────────
   const absolutePath = path.resolve(graphFile);
   if (!fs.existsSync(absolutePath)) {
-    console.error(`[ICEE] ❌ Graph file not found: ${absolutePath}`);
+    console.error(`[OMEGA] ❌ Graph file not found: ${absolutePath}`);
     process.exit(1);
   }
 
@@ -56,18 +56,18 @@ export async function runCommand(
   try {
     graphRaw = JSON.parse(fs.readFileSync(absolutePath, "utf-8"));
   } catch (e) {
-    console.error(`[ICEE] ❌ Failed to parse graph JSON: ${(e as Error).message}`);
+    console.error(`[OMEGA] ❌ Failed to parse graph JSON: ${(e as Error).message}`);
     process.exit(1);
   }
 
   const graphResult = GraphDefinitionSchema.safeParse(graphRaw);
   if (!graphResult.success) {
-    console.error("[ICEE] ❌ Invalid graph definition:");
+    console.error("[OMEGA] ❌ Invalid graph definition:");
     console.error(JSON.stringify(graphResult.error.format(), null, 2));
     process.exit(1);
   }
   const graph = graphResult.data;
-  console.log(`[ICEE] Graph: "${graph.name}" (${graph.nodes.length} nodes, ${graph.edges.length} edges)`);
+  console.log(`[OMEGA] Graph: "${graph.name}" (${graph.nodes.length} nodes, ${graph.edges.length} edges)`);
 
   // ── 解析输入 ─────────────────────────────────────
   let input: Record<string, unknown> | undefined;
@@ -75,7 +75,7 @@ export async function runCommand(
     try {
       input = JSON.parse(opts.input) as Record<string, unknown>;
     } catch {
-      console.error(`[ICEE] ❌ --input must be valid JSON. Got: ${opts.input}`);
+      console.error(`[OMEGA] ❌ --input must be valid JSON. Got: ${opts.input}`);
       process.exit(1);
     }
   }
@@ -86,30 +86,30 @@ export async function runCommand(
 
   if (!useMock) {
     // 尝试 Ollama 健康检查
-    console.log(`[ICEE] Checking Ollama at ${ollamaBaseUrl}...`);
+    console.log(`[OMEGA] Checking Ollama at ${ollamaBaseUrl}...`);
     const tempProvider = new OllamaProvider({ baseUrl: ollamaBaseUrl });
     const isHealthy = await tempProvider.healthCheck();
 
     if (isHealthy) {
       ollamaProvider = tempProvider;
       const models = await tempProvider.listModels();
-      console.log(`[ICEE] ✅ Ollama is available. Models: ${models.slice(0, 5).join(", ") || "(none pulled)"}`);
+      console.log(`[OMEGA] ✅ Ollama is available. Models: ${models.slice(0, 5).join(", ") || "(none pulled)"}`);
     } else {
       useMock = true;
-      console.warn(`[ICEE] ⚠️  Ollama not reachable at ${ollamaBaseUrl}`);
-      console.warn(`[ICEE] ⚠️  Falling back to mock mode. Start Ollama and rerun to use real AI.`);
-      console.warn(`[ICEE] ⚠️  Hint: ollama serve  /  ollama pull llama3.2`);
+      console.warn(`[OMEGA] ⚠️  Ollama not reachable at ${ollamaBaseUrl}`);
+      console.warn(`[OMEGA] ⚠️  Falling back to mock mode. Start Ollama and rerun to use real AI.`);
+      console.warn(`[OMEGA] ⚠️  Hint: ollama serve  /  ollama pull llama3.2`);
     }
   } else {
-    console.log(`[ICEE] Mock mode enabled (--mock flag)`);
+    console.log(`[OMEGA] Mock mode enabled (--mock flag)`);
   }
 
   // ── 初始化数据库 ──────────────────────────────────
-  const iceeDb = getDatabase(opts.db);
-  const runRepo = new RunRepository(iceeDb.instance);
-  const stepRepo = new StepRepository(iceeDb.instance);
-  const eventRepo = new EventRepository(iceeDb.instance);
-  console.log(`[ICEE] Database: ${path.resolve(opts.db)}`);
+  const omegaDb = getDatabase(opts.db);
+  const runRepo = new RunRepository(omegaDb.instance);
+  const stepRepo = new StepRepository(omegaDb.instance);
+  const eventRepo = new EventRepository(omegaDb.instance);
+  console.log(`[OMEGA] Database: ${path.resolve(opts.db)}`);
 
   // ── 注册节点执行器 ────────────────────────────────
   const registry = new NodeExecutorRegistry();
@@ -122,11 +122,11 @@ export async function runCommand(
     const provider = ollamaProvider;
     registry.register(new LLMNodeExecutor(async (config, _input) => {
       const modelLabel = `${config.provider ?? "ollama"}/${config.model}`;
-      console.log(`[ICEE]   🤖 LLM call → ${modelLabel}`);
-      console.log(`[ICEE]      Prompt (${(config.promptTemplate ?? "").length} chars)`);
+      console.log(`[OMEGA]   🤖 LLM call → ${modelLabel}`);
+      console.log(`[OMEGA]      Prompt (${(config.promptTemplate ?? "").length} chars)`);
 
       try {
-        const requestPayload: import("@icee/shared").LLMRequest = {
+        const requestPayload: import("@omega/shared").LLMRequest = {
           model: config.model,
           messages: [
             {
@@ -147,17 +147,17 @@ export async function runCommand(
         };
         const result = await provider.generateComplete(requestPayload);
 
-        console.log(`[ICEE]      ✓ ${result.tokens} tokens`);
+        console.log(`[OMEGA]      ✓ ${result.tokens} tokens`);
         // 截断显示前 200 字符
         const preview = result.text.slice(0, 200).replace(/\n/g, " ");
-        console.log(`[ICEE]      Output: ${preview}${result.text.length > 200 ? "…" : ""}`);
+        console.log(`[OMEGA]      Output: ${preview}${result.text.length > 200 ? "…" : ""}`);
         return result;
       } catch (e) {
         const msg = (e as Error).message;
-        console.error(`[ICEE]   ❌ Ollama error: ${msg}`);
+        console.error(`[OMEGA]   ❌ Ollama error: ${msg}`);
         // 如果是模型未找到，给出友好提示
         if (msg.includes("model") || msg.includes("404")) {
-          console.error(`[ICEE]   💡 Hint: run  ollama pull ${config.model}  to download the model`);
+          console.error(`[OMEGA]   💡 Hint: run  ollama pull ${config.model}  to download the model`);
         }
         throw e;
       }
@@ -166,7 +166,7 @@ export async function runCommand(
     // Mock LLM 执行器
     registry.register(new LLMNodeExecutor(async (config, _input) => {
       const modelLabel = `${config.provider ?? "mock"}/${config.model}`;
-      console.log(`[ICEE]   🔲 LLM mock → ${modelLabel}`);
+      console.log(`[OMEGA]   🔲 LLM mock → ${modelLabel}`);
       return {
         text: `[Mock LLM output for model ${config.model}] — Start Ollama to get real AI responses.`,
         tokens: 100,
@@ -178,7 +178,7 @@ export async function runCommand(
 
   // Tool 执行器 (mock — 工具系统将在后续版本接入)
   registry.register(new ToolNodeExecutor(async (toolName, _version, toolInput, _timeout) => {
-    console.log(`[ICEE]   🔧 Tool: ${toolName}`, JSON.stringify(toolInput).slice(0, 100));
+    console.log(`[OMEGA]   🔧 Tool: ${toolName}`, JSON.stringify(toolInput).slice(0, 100));
     return { result: `[Mock tool output from ${toolName}]` };
   }));
 
@@ -212,28 +212,28 @@ export async function runCommand(
     (event) => {
       switch (event.type) {
         case "event:run_started":
-          console.log(`[ICEE] ▶ Run started: ${event.payload.runId}`);
+          console.log(`[OMEGA] ▶ Run started: ${event.payload.runId}`);
           break;
         case "event:step_started":
-          console.log(`[ICEE]   → [${event.payload.nodeType}] ${event.payload.nodeLabel}`);
+          console.log(`[OMEGA]   → [${event.payload.nodeType}] ${event.payload.nodeLabel}`);
           break;
         case "event:step_completed":
-          console.log(`[ICEE]   ✓ ${event.payload.nodeId} completed`);
+          console.log(`[OMEGA]   ✓ ${event.payload.nodeId} completed`);
           break;
         case "event:run_completed":
-          console.log(`[ICEE] ─────────────────────────────────────`);
-          console.log(`[ICEE] ✅ Run ${event.payload.state}`);
-          console.log(`[ICEE]    Duration: ${event.payload.durationMs}ms`);
-          console.log(`[ICEE]    Tokens:   ${event.payload.totalTokens}`);
-          console.log(`[ICEE]    Cost:     $${event.payload.totalCostUsd.toFixed(6)}`);
+          console.log(`[OMEGA] ─────────────────────────────────────`);
+          console.log(`[OMEGA] ✅ Run ${event.payload.state}`);
+          console.log(`[OMEGA]    Duration: ${event.payload.durationMs}ms`);
+          console.log(`[OMEGA]    Tokens:   ${event.payload.totalTokens}`);
+          console.log(`[OMEGA]    Cost:     $${event.payload.totalCostUsd.toFixed(6)}`);
           if (event.payload.output) {
-            console.log(`[ICEE]    Output:`);
+            console.log(`[OMEGA]    Output:`);
             console.log(JSON.stringify(event.payload.output, null, 2));
           }
-          console.log(`[ICEE] ─────────────────────────────────────`);
+          console.log(`[OMEGA] ─────────────────────────────────────`);
           break;
         case "event:error":
-          console.error(`[ICEE] ❌ Error: ${event.payload.error.message}`);
+          console.error(`[OMEGA] ❌ Error: ${event.payload.error.message}`);
           break;
       }
     }
@@ -243,12 +243,12 @@ export async function runCommand(
   try {
     runId = await runtime.startRun(graph, input);
   } catch (e) {
-    console.error(`[ICEE] ❌ Failed to start run: ${(e as Error).message}`);
-    iceeDb.close();
+    console.error(`[OMEGA] ❌ Failed to start run: ${(e as Error).message}`);
+    omegaDb.close();
     process.exit(1);
   }
 
-  console.log(`[ICEE] Run ID: ${runId}`);
+  console.log(`[OMEGA] Run ID: ${runId}`);
 
   // 等待 Run 完成 (轮询活跃状态)
   while (runtime.getActiveRunIds().includes(runId)) {
@@ -256,7 +256,10 @@ export async function runCommand(
   }
 
   const elapsed = Date.now() - startTime;
-  console.log(`[ICEE] Total wall time: ${elapsed}ms`);
+  console.log(`[OMEGA] Total wall time: ${elapsed}ms`);
 
-  iceeDb.close();
+  omegaDb.close();
 }
+
+
+

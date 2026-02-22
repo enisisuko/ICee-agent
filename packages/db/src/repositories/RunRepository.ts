@@ -1,5 +1,5 @@
-import type { Run } from "@icee/shared";
-import { RunState } from "@icee/shared";
+﻿import type { Run } from "@omega/shared";
+import { RunState } from "@omega/shared";
 
 /**
  * Run Repository — 负责 runs 表的所有 CRUD 操作

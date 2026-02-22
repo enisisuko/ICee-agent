@@ -1,4 +1,4 @@
-/**
+﻿/**
  * AgentSkills — 内置 Agent 技能集
  *
  * 这些 Skills 是不依赖外部 MCP 的纯逻辑能力，由 AgentLoopExecutor 在执行时自动调用。
@@ -267,7 +267,7 @@ export async function quickSearch(query: string): Promise<string> {
   try {
     const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`;
     const res = await fetch(url, {
-      headers: { "User-Agent": "ICEE-Agent/0.1" },
+      headers: { "User-Agent": "Omega-Agent/0.1" },
     });
 
     if (!res.ok) return `Search failed: HTTP ${res.status}`;

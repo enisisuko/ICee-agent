@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { SubagentNode, SubagentCardState } from "../../types/ui.js";
 import { NodeDetailPanel } from "./NodeDetailPanel.js";
@@ -22,7 +22,7 @@ const NODE_TYPE_ICONS: Record<SubagentNode["type"], string> = {
 
 /**
  * 节点类型左侧彩色竖条颜色（4px 宽，全高，用于区分节点身份）
- * 参考 ICEE 色彩系统：紫/青/蓝/金/玫红
+ * 参考 Omega 色彩系统：紫/青/蓝/金/玫红
  */
 const TYPE_ACCENT: Record<SubagentNode["type"], string> = {
   PLANNING:   "rgba(167,139,250,0.80)",  // 紫色 — Planner

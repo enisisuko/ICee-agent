@@ -1,14 +1,14 @@
-import { contextBridge, ipcRenderer } from "electron";
+﻿import { contextBridge, ipcRenderer } from "electron";
 
 /**
- * ICEE Preload — contextBridge 安全接口 (v0.3.5)
+ * Omega Preload — contextBridge 安全接口 (v0.3.5)
  *
- * 通过 window.icee 暴露给 renderer 进程，
+ * 通过 window.omega 暴露给 renderer 进程，
  * renderer 无法直接访问 Node.js / Electron API，只能通过这里的白名单方法。
  *
  * 新增（v0.3.5）:
  *   - getRules / saveRules               — 用户全局 Rules CRUD
- *   - getProjectRules / saveProjectRules — 项目级 .icee/rules.md
+ *   - getProjectRules / saveProjectRules — 项目级 .omega/rules.md
  *   - onTokenStream                      — LLM 流式 token 推送
  */
 
@@ -75,7 +75,7 @@ type AgentStepPayload = {
 };
 
 // ── 暴露 API ───────────────────────────────────
-contextBridge.exposeInMainWorld("icee", {
+contextBridge.exposeInMainWorld("omega", {
   // ── Graph 运行时 ─────────────────────────────
 
   /**
@@ -86,7 +86,7 @@ contextBridge.exposeInMainWorld("icee", {
    * @returns  { runId } 或 { error }
    */
   runGraph: (graphJson: string, inputJson: string, attachmentsJson?: string) =>
-    ipcRenderer.invoke("icee:run-graph", graphJson, inputJson, attachmentsJson),
+    ipcRenderer.invoke("omega:run-graph", graphJson, inputJson, attachmentsJson),
 
   /**
    * 运行 ReAct 动态 Agent 循环（Cline 风格，步骤数由 LLM 动态决定）
@@ -94,13 +94,13 @@ contextBridge.exposeInMainWorld("icee", {
    * @returns { runId } 或 { error }
    */
   runAgentLoop: (taskJson: string) =>
-    ipcRenderer.invoke("icee:run-agent-loop", taskJson),
+    ipcRenderer.invoke("omega:run-agent-loop", taskJson),
 
   /**
    * 取消正在运行的 Run
    */
   cancelRun: (runId: string) =>
-    ipcRenderer.invoke("icee:cancel-run", runId),
+    ipcRenderer.invoke("omega:cancel-run", runId),
 
   /**
    * Fork 一个 Run：从指定 Step 开始重新执行
@@ -110,13 +110,13 @@ contextBridge.exposeInMainWorld("icee", {
    * @param inputOverrideJson  覆盖的输入（如编辑后的 Prompt），JSON 字符串，可选
    */
   forkRun: (parentRunId: string, fromStepId: string, graphJson: string, inputOverrideJson?: string) =>
-    ipcRenderer.invoke("icee:fork-run", parentRunId, fromStepId, graphJson, inputOverrideJson),
+    ipcRenderer.invoke("omega:fork-run", parentRunId, fromStepId, graphJson, inputOverrideJson),
 
   /**
    * 列出历史 Run 记录（最近 20 条）
    */
   listRuns: () =>
-    ipcRenderer.invoke("icee:list-runs"),
+    ipcRenderer.invoke("omega:list-runs"),
 
   // ── Provider CRUD ────────────────────────────
 
@@ -124,19 +124,19 @@ contextBridge.exposeInMainWorld("icee", {
    * 列出所有已配置的 Provider
    */
   listProviders: () =>
-    ipcRenderer.invoke("icee:list-providers"),
+    ipcRenderer.invoke("omega:list-providers"),
 
   /**
    * 保存（新增或更新）Provider 配置
    */
   saveProvider: (config: ProviderConfigPayload) =>
-    ipcRenderer.invoke("icee:save-provider", config),
+    ipcRenderer.invoke("omega:save-provider", config),
 
   /**
    * 删除 Provider 配置
    */
   deleteProvider: (id: string) =>
-    ipcRenderer.invoke("icee:delete-provider", id),
+    ipcRenderer.invoke("omega:delete-provider", id),
 
   // ── MCP 工具管理 ──────────────────────────────
 
@@ -144,20 +144,20 @@ contextBridge.exposeInMainWorld("icee", {
    * 获取 MCP 工具列表及连接状态
    */
   listMcpTools: () =>
-    ipcRenderer.invoke("icee:list-mcp-tools"),
+    ipcRenderer.invoke("omega:list-mcp-tools"),
 
   /**
    * 设置 MCP 文件系统允许目录
    * 传入 "__dialog__" 时会打开系统文件夹选择器
    */
   setMcpAllowedDir: (dirOrDialog: string) =>
-    ipcRenderer.invoke("icee:set-mcp-allowed-dir", dirOrDialog),
+    ipcRenderer.invoke("omega:set-mcp-allowed-dir", dirOrDialog),
 
   /**
    * 重载 Provider（保存新配置后调用，让主进程重新健康检查并更新 Ollama 状态灯）
    */
   reloadProvider: () =>
-    ipcRenderer.invoke("icee:reload-provider"),
+    ipcRenderer.invoke("omega:reload-provider"),
 
   // ── 事件订阅 ──────────────────────────────────
 
@@ -167,9 +167,9 @@ contextBridge.exposeInMainWorld("icee", {
   onOllamaStatus: (callback: (payload: OllamaStatusPayload) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, payload: OllamaStatusPayload) =>
       callback(payload);
-    ipcRenderer.on("icee:ollama-status", handler);
+    ipcRenderer.on("omega:ollama-status", handler);
     // 返回取消函数
-    return () => ipcRenderer.off("icee:ollama-status", handler);
+    return () => ipcRenderer.off("omega:ollama-status", handler);
   },
 
   /**
@@ -178,8 +178,8 @@ contextBridge.exposeInMainWorld("icee", {
   onStepEvent: (callback: (payload: StepEventPayload) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, payload: StepEventPayload) =>
       callback(payload);
-    ipcRenderer.on("icee:step-event", handler);
-    return () => ipcRenderer.off("icee:step-event", handler);
+    ipcRenderer.on("omega:step-event", handler);
+    return () => ipcRenderer.off("omega:step-event", handler);
   },
 
   /**
@@ -188,8 +188,8 @@ contextBridge.exposeInMainWorld("icee", {
   onRunCompleted: (callback: (payload: RunCompletedPayload) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, payload: RunCompletedPayload) =>
       callback(payload);
-    ipcRenderer.on("icee:run-completed", handler);
-    return () => ipcRenderer.off("icee:run-completed", handler);
+    ipcRenderer.on("omega:run-completed", handler);
+    return () => ipcRenderer.off("omega:run-completed", handler);
   },
 
   /**
@@ -198,8 +198,8 @@ contextBridge.exposeInMainWorld("icee", {
   onTokenUpdate: (callback: (payload: TokenUpdatePayload) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, payload: TokenUpdatePayload) =>
       callback(payload);
-    ipcRenderer.on("icee:token-update", handler);
-    return () => ipcRenderer.off("icee:token-update", handler);
+    ipcRenderer.on("omega:token-update", handler);
+    return () => ipcRenderer.off("omega:token-update", handler);
   },
 
   /**
@@ -208,8 +208,8 @@ contextBridge.exposeInMainWorld("icee", {
   onAgentStep: (callback: (payload: { runId: string; step: AgentStepPayload }) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, payload: { runId: string; step: AgentStepPayload }) =>
       callback(payload);
-    ipcRenderer.on("icee:agent-step", handler);
-    return () => ipcRenderer.off("icee:agent-step", handler);
+    ipcRenderer.on("omega:agent-step", handler);
+    return () => ipcRenderer.off("omega:agent-step", handler);
   },
 
   /**
@@ -219,8 +219,8 @@ contextBridge.exposeInMainWorld("icee", {
   onTokenStream: (callback: (payload: { token: string; runId: string }) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, payload: { token: string; runId: string }) =>
       callback(payload);
-    ipcRenderer.on("icee:token-stream", handler);
-    return () => ipcRenderer.off("icee:token-stream", handler);
+    ipcRenderer.on("omega:token-stream", handler);
+    return () => ipcRenderer.off("omega:token-stream", handler);
   },
 
   // ── Rules 管理 ────────────────────────────────
@@ -229,27 +229,59 @@ contextBridge.exposeInMainWorld("icee", {
    * 获取用户全局 Rules（存储于 SQLite user_settings 表）
    */
   getRules: (): Promise<{ userRules: string }> =>
-    ipcRenderer.invoke("icee:get-rules"),
+    ipcRenderer.invoke("omega:get-rules"),
 
   /**
    * 保存用户全局 Rules
    */
   saveRules: (userRules: string): Promise<{ ok?: boolean; error?: string }> =>
-    ipcRenderer.invoke("icee:save-rules", userRules),
+    ipcRenderer.invoke("omega:save-rules", userRules),
 
   /**
-   * 获取项目级 Rules（.icee/rules.md）
+   * 获取项目级 Rules（.omega/rules.md）
    * @param dirPath 项目目录路径，不传则默认 Documents
    */
   getProjectRules: (dirPath?: string): Promise<{ content: string; path: string; error?: string }> =>
-    ipcRenderer.invoke("icee:get-project-rules", dirPath ?? ""),
+    ipcRenderer.invoke("omega:get-project-rules", dirPath ?? ""),
 
   /**
-   * 保存项目级 Rules 到 .icee/rules.md
+   * 保存项目级 Rules 到 .omega/rules.md
    */
   saveProjectRules: (dirPath: string, content: string): Promise<{ ok?: boolean; path?: string; error?: string }> =>
-    ipcRenderer.invoke("icee:save-project-rules", dirPath, content),
+    ipcRenderer.invoke("omega:save-project-rules", dirPath, content),
+
+  // ── 工作目录管理 ──────────────────────────────
+
+  /**
+   * 监听项目上下文推送（main 进程扫描工作目录后发送）
+   * 返回取消订阅函数
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onProjectContext: (callback: (ctx: any) => void) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handler = (_event: Electron.IpcRendererEvent, ctx: any) => callback(ctx);
+    ipcRenderer.on("omega:project-context", handler);
+    return () => ipcRenderer.off("omega:project-context", handler);
+  },
+
+  /**
+   * 弹出文件夹选择器以更换工作目录
+   * main 进程处理选择并自动推送新的 omega:project-context 事件
+   */
+  changeWorkingDir: (): Promise<{
+    ok?: boolean;
+    canceled?: boolean;
+    workingDir?: string;
+    error?: string;
+  }> =>
+    ipcRenderer.invoke("omega:change-working-dir"),
+
+  /**
+   * 获取当前已保存的工作目录路径
+   */
+  getWorkingDir: (): Promise<{ workingDir: string | null; error?: string }> =>
+    ipcRenderer.invoke("omega:get-working-dir"),
 });
 
-// ── 向 renderer 暴露的 window.icee 类型声明 ────
+// ── 向 renderer 暴露的 window.omega 类型声明 ────
 // （ts 类型补充在 src/renderer/types/electron.d.ts 里）
