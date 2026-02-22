@@ -205,7 +205,11 @@ function parseAgentResponse(text: string): {
   // 提取 final_answer
   const finalMatch = text.match(/<final_answer>([\s\S]*?)<\/final_answer>/i);
   if (finalMatch) {
-    return { thought, finalAnswer: finalMatch[1]?.trim() };
+    const finalAnswer = finalMatch[1]?.trim();
+    const result: { thought?: string; finalAnswer?: string } = {};
+    if (thought !== undefined) result.thought = thought;
+    if (finalAnswer !== undefined) result.finalAnswer = finalAnswer;
+    return result;
   }
 
   // 提取 tool_use
@@ -229,7 +233,12 @@ function parseAgentResponse(text: string): {
       toolInput = paramMap;
     }
 
-    return { thought, toolName, toolInput };
+    const result: { thought?: string; toolName?: string; toolInput?: unknown } = {
+      toolInput,
+    };
+    if (thought !== undefined) result.thought = thought;
+    if (toolName !== undefined) result.toolName = toolName;
+    return result;
   }
 
   // 没有格式标签：如果文本看起来像最终答案（无工具调用意图），直接当 finalAnswer
@@ -239,10 +248,12 @@ function parseAgentResponse(text: string): {
     text.toLowerCase().includes("我需要查");
 
   if (!hasToolIntent && text.trim().length > 20) {
-    return { thought: undefined, finalAnswer: text.trim() };
+    return { finalAnswer: text.trim() };
   }
 
-  return { thought };
+  const fallback: { thought?: string } = {};
+  if (thought !== undefined) fallback.thought = thought;
+  return fallback;
 }
 
 // ─── ReAct 主循环 ─────────────────────────────────────────────────────────
