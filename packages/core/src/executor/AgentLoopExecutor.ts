@@ -776,13 +776,25 @@ export class AgentLoopExecutor {
         : task;
 
     // ── 初始化对话历史 ────────────────────────────────────────────────────
-    // 若有历史消息（多轮对话），在末尾追加本轮用户消息；
-    // 否则只有本轮用户消息（首次对话）。
-    // Cline 风格：每次新任务作为新 user 消息追加，不重置整个 messages 数组。
-    const messages: ChatMessage[] = [
-      ...(initialMessages ?? []),
-      { role: "user", content: newUserContent },
-    ];
+    // 若有历史消息（多轮对话），先注入一条 assistant 摘要说明，告知 LLM 存在历史上下文，
+    // 然后追加本轮用户消息。这样 LLM 能正确理解多轮对话的存在。
+    // 历史消息格式：[{role:"user", content: 上一轮任务}, {role:"assistant", content: 上一轮答案}, ...]
+    // 均为干净的"摘要对"，不含工具调用中间步骤，避免格式混乱。
+    const messages: ChatMessage[] = [];
+
+    if (initialMessages && initialMessages.length > 0) {
+      // 注入历史上下文（干净的摘要对：用户任务 + AI答案）
+      messages.push(...initialMessages);
+      // 告知 LLM 历史已注入，现在是新的一轮任务
+      const historyNotice = this.lang === "zh"
+        ? `[上下文说明] 以上是你与用户之前的对话历史（共 ${initialMessages.length} 条消息）。现在用户有了新的任务，请在理解历史上下文的基础上完成它。`
+        : `[Context Note] The above messages are your previous conversation history with the user (${initialMessages.length} messages). The user now has a new task — please complete it with awareness of the prior context.`;
+      messages.push({ role: "user", content: historyNotice });
+      messages.push({ role: "assistant", content: this.lang === "zh" ? "好的，我已了解历史对话内容，请告诉我新的任务。" : "Understood, I have reviewed the conversation history. Please share your new task." });
+    }
+
+    // 追加本轮用户新任务
+    messages.push({ role: "user", content: newUserContent });
 
     log.info(
       { runId, task: task.slice(0, 80), historyCount: initialMessages?.length ?? 0 },

@@ -1415,25 +1415,37 @@ async function initRuntime(win: BrowserWindow) {
           // 传入历史消息（实现跨轮次记忆，Cline 风格）
           const result = await executor.execute(task, taskImageUrls, historyMessages);
 
-          // ── 跨轮次记忆：把本轮完整 messages 存回 sessionMessagesMap ──────
-          // finalMessages 包含了 initialMessages + 本轮新增的 user/assistant/tool 消息
-          // 下次用户在同一 session 发消息时，这些历史会被重新注入
-          if (sessionId && result.finalMessages) {
-            let updatedHistory = result.finalMessages;
+          // ── 跨轮次记忆：只保存"干净摘要对"，而非整个工具循环中间消息 ──────
+          // 问题根因：finalMessages 里含有大量工具调用中间消息（工具结果/nudge/思考链），
+          // 这些消息注入给 LLM 后会造成格式混乱，LLM 无法识别为"之前的对话历史"。
+          // 正确做法：只保留 [用户原始任务, AI最终答案] 这一对干净的消息，
+          // 让 LLM 下一轮看到的是自然的多轮对话格式（类似 ChatGPT 的对话记忆）。
+          if (sessionId) {
+            // 从已有历史出发（上一轮保存的干净摘要）
+            const prevHistory = historyMessages ?? [];
 
-            // 超出上限时修剪：永远保留第一条（原始任务），然后删除最旧的一对消息
+            // 本轮新增：[用户原始任务消息, AI最终答案]
+            const userMsg: { role: "user" | "assistant" | "system"; content: string } = {
+              role: "user",
+              content: task,  // task 是处理附件后的完整任务文本
+            };
+            const assistantMsg: { role: "user" | "assistant" | "system"; content: string } = {
+              role: "assistant",
+              content: result.finalAnswer || "（任务完成，无文字结果）",
+            };
+
+            let updatedHistory = [...prevHistory, userMsg, assistantMsg];
+
+            // 超出上限时修剪：保留最近 N 对对话（每对=2条消息）
+            // SESSION_MESSAGES_LIMIT 以"条"为单位，保留最新的
             if (updatedHistory.length > SESSION_MESSAGES_LIMIT) {
               const excess = updatedHistory.length - SESSION_MESSAGES_LIMIT;
-              // 从 index 1 开始删（保留 index 0 的原始任务消息）
-              updatedHistory = [
-                updatedHistory[0]!,
-                ...updatedHistory.slice(1 + excess),
-              ];
+              updatedHistory = updatedHistory.slice(excess);
               console.log(`[OMEGA Memory] Session ${sessionId}: trimmed ${excess} old messages (limit=${SESSION_MESSAGES_LIMIT})`);
             }
 
             sessionMessagesMap.set(sessionId, updatedHistory);
-            console.log(`[OMEGA Memory] Session ${sessionId}: saved ${updatedHistory.length} messages for next turn`);
+            console.log(`[OMEGA Memory] Session ${sessionId}: saved clean summary (${updatedHistory.length} msgs, latest: user="${task.slice(0,40)}..." assistant="${result.finalAnswer.slice(0,60)}...")`);
           }
 
           // 清理 cancelMap
