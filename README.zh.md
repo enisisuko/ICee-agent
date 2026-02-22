@@ -1,119 +1,142 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/enisisuko/ICee-agent/master/screenshots/icee-ui-demo.png" alt="ICee Agent" width="100%">
+<img src="https://raw.githubusercontent.com/enisisuko/ICee-agent/main/screenshots/icee-ui-demo.png" alt="ICee Agent" width="100%">
 
-# ICee Agent
+# ICee Agent · v1.0.3
 
-**本地运行 AI 智能体。看见每一步。随时修改任意步骤。**
+**本地优先的 AI 智能体桌面应用。每一步可见，每一步可控。**
 
-本地优先的智能体桌面应用，实时节点可视化 — 专为想完全掌控 AI 思考与行动过程的人设计。
+一款让 AI 智能体变得透明、可控的桌面应用 — 实时观察每次决策，回退到任意步骤，编辑提示词，从那里继续分支执行。
 
+[![CI](https://github.com/enisisuko/ICee-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/enisisuko/ICee-agent/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/Node-%3E%3D20-brightgreen)](https://nodejs.org/)
 [![Electron](https://img.shields.io/badge/Electron-35-blueviolet)](https://www.electronjs.org/)
-[![Ollama](https://img.shields.io/badge/Ollama-支持-black)](https://ollama.com/)
-[![MCP](https://img.shields.io/badge/MCP-支持-orange)](https://modelcontextprotocol.io/)
+[![Ollama](https://img.shields.io/badge/Ollama-ready-black)](https://ollama.com/)
+[![MCP](https://img.shields.io/badge/MCP-supported-orange)](https://modelcontextprotocol.io/)
 
-[English](README.md) · [提交 Bug](https://github.com/enisisuko/ICee-agent/issues) · [功能建议](https://github.com/enisisuko/ICee-agent/issues)
+[English](README.md) · [提交 Bug](https://github.com/enisisuko/ICee-agent/issues) · [功能请求](https://github.com/enisisuko/ICee-agent/issues)
 
 </div>
 
 ---
 
-## 为什么选 ICee？
+## 为什么选择 ICee？
 
-大多数 AI 智能体工具都是黑盒。你提交任务、等待、祈祷结果正确。
+大多数 AI 智能体工具都是黑盒。你提交任务，等待，然后祈祷结果正确 — 出错了就只能重头再来。
 
-ICee 不一样。智能体的每一步都实时渲染为可视节点 —— 你能看到它思考、行动、完成的全过程。当结果不对（或者可以更好）时，你不需要从头重来。**直接回退到那个步骤，编辑提示词，从那里重新执行。**
+ICee 的设计理念完全不同：
+
+| | 其他智能体工具 | ICee Agent |
+|---|:---:|:---:|
+| 实时查看每一步 | ✗ | ✓ |
+| 运行中编辑提示词 | ✗ | ✓ |
+| 从任意步骤分支执行 | ✗ | ✓ |
+| 完全离线运行 | 部分 | **始终可以** |
+| 需要 API Key | 必须 | **可选** |
 
 ---
 
-## ✨ ICee 的两个核心优势
+## ✨ ICee 的独特之处
 
-### 1. 步骤级回退与重执行
+### 1. 步骤级回退与重新执行
 
-<img src="https://raw.githubusercontent.com/enisisuko/ICee-agent/master/screenshots/icee-step-detail.png" alt="步骤详情：包含回退和重跑控制" width="100%">
+<img src="https://raw.githubusercontent.com/enisisuko/ICee-agent/main/screenshots/icee-step-detail.png" alt="步骤详情 — 回退与重跑控件" width="100%">
 
-每个节点都展示完整的**步骤历史**：发送了什么提示词、输出是什么、耗时多久、是否成功或重试。你随时可以：
+每个节点都完整记录其执行历史：发送的精确提示词、接收到的输出、Token 数量、耗时，以及是否成功或重试。任意时刻你都可以：
 
-- **撤销此步骤（Revert this step）** — 回退到同一节点的上一次尝试
-- **从此处重跑（Rerun from here）** — 从这个节点开始分叉整个工作流
+- **回退此步骤** — 回滚到该节点的上一次尝试
+- **从此处重跑** — 从该节点向前分支整个工作流
 
-<img src="https://raw.githubusercontent.com/enisisuko/ICee-agent/master/screenshots/icee-rerun-modal.png" alt="重跑弹窗：执行前编辑提示词" width="100%">
+<img src="https://raw.githubusercontent.com/enisisuko/ICee-agent/main/screenshots/icee-rerun-modal.png" alt="重跑弹窗 — 执行前编辑提示词" width="100%">
 
-重跑弹窗让你**直接编辑发送给 AI 的提示词** — 左侧显示上一次的输入，右侧显示上一次的输出，提供完整上下文参考。改一个词或者重写整段都行。下游节点会被清空，从分支点重新执行。
+重跑弹窗并排显示上次的输入和输出以供参考 — 然后允许你在重新执行前编辑精确的提示词。改一个词或整段重写都行。下游节点会被清空，并从分支点重新执行。
 
-<img src="https://raw.githubusercontent.com/enisisuko/ICee-agent/master/screenshots/icee-node-graph.png" alt="节点图：显示各步骤状态" width="100%">
+> **底层机制**：每次 Fork 在 SQLite 中生成新的 `runId`，保留 `parent_run_id` 和 `fork_from_step_id` 字段。完整的执行血统链被永久保存 — 你始终可以追溯到任何结果是如何产生的。
 
-节点状态实时更新：`done`（绿色）→ `error`（红色）→ `Step reverted by user`（用户已撤销）→ 重新执行中。图表始终精准反映智能体当前所处位置。
+<img src="https://raw.githubusercontent.com/enisisuko/ICee-agent/main/screenshots/icee-node-graph.png" alt="节点图 — 显示各步骤状态" width="100%">
+
+节点状态实时更新：`运行中` → `完成`（绿色）/ `错误`（红色）→ `用户已回退步骤` → 重新运行。图形始终精确反映智能体当前所在位置。
 
 ---
 
 ### 2. 本地模型优先 — 无需云端
 
-ICee 从底层就是为**本地 LLM（通过 Ollama）**设计的。无需 API Key，数据不出本机，没有按 token 计费。
+ICee 从底层开始就为**通过 Ollama 运行本地大模型**而构建。无需 API Key，数据不离本机，没有按 Token 计费。
+
+> **完全离线**：Ollama 负责大模型，DuckDuckGo 提供网页搜索（无需 Key），8 个内置工具覆盖文件系统、剪贴板和代码执行。所有功能均可在零外部账户的情况下运行。
 
 ```bash
 ollama pull qwen2.5:7b      # 中文任务推荐
 ollama pull llama3.2        # 快速通用
-ollama pull deepseek-r1:8b  # 推理能力强
+ollama pull deepseek-r1:8b  # 强推理能力
 ```
 
-所有功能 — 流式输出、工具调用、多轮记忆、上下文压缩 — 无论你用本地 Ollama 还是云端 Provider，表现完全一致。Provider 只是一个配置项，系统其余部分不关心它是本地还是云端。
+无论使用本地模型还是云端服务，所有功能 — 流式输出、工具调用、多轮记忆、上下文压缩 — 的表现完全一致。切换服务商只需修改一个配置项，其余系统不变。
 
-开箱即支持的 Provider：
-
-| Provider | 类型 | 说明 |
-|----------|------|------|
-| **Ollama** | 本地 | 默认推荐。无需密钥，零费用，完全隐私 |
-| **LM Studio** | 本地 | 兼容 OpenAI 协议的本地推理服务器 |
+| 服务商 | 类型 | 备注 |
+|--------|------|------|
+| **Ollama** | 本地 | 默认 — 无需 Key，零费用，完全私密 |
+| **LM Studio** | 本地 | OpenAI 兼容本地服务器 |
 | **OpenAI** | 云端 | GPT-4o、o1 等 |
-| **Groq** | 云端 | 极速推理，免费额度慷慨 |
+| **Groq** | 云端 | 快速推理，免费额度慷慨 |
 | **Azure OpenAI** | 云端 | 企业级部署 |
-| 任意 OpenAI 兼容 API | 均可 | 填一个 Base URL 即可接入 |
+| 任意 OpenAI 兼容 API | 均可 | 填写一个 URL 即可配置 |
 
 ---
 
 ## 智能体能做什么
 
-ICee 运行 **ReAct 循环**（推理 → 行动 → 观察，最多 20 次迭代）。智能体自主决定调用哪些工具，以及何时停止。
+ICee 运行 **ReAct 循环**（推理 → 行动 → 观察，最多 20 次迭代）。智能体自主决定何时调用哪些工具以及何时停止。如果没有进展，Nudge 机制会提示其重新组织；达到迭代上限时，它会以较低温度写出强制总结。
 
 ### 8 个内置工具 — 零配置
 
+所有工具直接在 Electron 进程中运行。无需外部服务器，无需任何配置。
+
 | 工具 | 功能 |
 |------|------|
-| `web_search` | DuckDuckGo 搜索，无需 API Key |
-| `http_fetch` | 抓取任意 URL，自动去除 HTML |
+| `web_search` | DuckDuckGo 搜索 — 无需 API Key |
+| `http_fetch` | 抓取任意 URL，自动过滤脚本和 HTML 标签 |
 | `fs_read` | 读取文件或列出目录内容 |
-| `fs_write` | 写入文件（自动创建目录） |
-| `code_exec` | 内联执行 JS / Python / Bash |
+| `fs_write` | 写入文件，自动创建所需目录 |
+| `code_exec` | 内联运行 JS / Python / Bash（Windows 上为 PowerShell） |
 | `clipboard_read` | 读取系统剪贴板 |
 | `clipboard_write` | 写入系统剪贴板 |
-| `browser_open` | 用默认浏览器打开 URL |
-
-所有工具直接在 Electron 进程中运行，无需外部服务器。
+| `browser_open` | 在默认浏览器中打开任意 URL |
 
 ### MCP 工具服务器支持
 
-接入任意 [Model Context Protocol](https://modelcontextprotocol.io/) 服务器以获得更多工具。名称冲突时内置工具优先。
+连接任意 [Model Context Protocol](https://modelcontextprotocol.io/) 服务器以获得额外工具。名称冲突时内置工具优先。
 
-### Rules 规则系统
+### 规则系统
 
 通过双层规则系统塑造智能体行为：
-- **全局规则** — 存储在 SQLite，每个会话都生效
-- **项目规则** — 在任意目录放置 `.icee/rules.md`，进入该目录时自动加载
+- **全局规则** — 存储于 SQLite，注入到每次会话的系统提示词中
+- **项目规则** — 在任意目录放置 `.icee/rules.md`，工作于该目录时自动加载
+
+### 智能体技能
+
+| 技能 | 功能 |
+|------|------|
+| `ContextCompressor` | Token 预算达到 80% 时自动压缩历史，保留任务定义和近期上下文 |
+| `RetryWithBackoff` | LLM 失败时指数退避重试（最多 2 次，延迟最长 10 秒） |
+| `OutputFormatter` | 规范化代码块，修正最终输出的格式和空白 |
 
 ---
 
 ## 🚀 快速开始
 
-### 环境要求
+### 方式一 — 下载安装包
 
-- [Node.js](https://nodejs.org/) ≥ 20
-- [pnpm](https://pnpm.io/) ≥ 9
-- [Ollama](https://ollama.com/)（推荐）或任意兼容 OpenAI 协议的 API
+从 [Releases](https://github.com/enisisuko/ICee-agent/releases) 下载适合你平台的最新版本：
+- **Windows**: `ICEE Agent Setup 1.0.3.exe`（NSIS 安装程序）
+- **macOS**: `ICee-Agent-1.0.3.dmg`
 
-### 安装并运行
+然后安装 [Ollama](https://ollama.com/)，拉取模型，启动 ICee 即可。
+
+### 方式二 — 源码运行
+
+**环境要求**：[Node.js](https://nodejs.org/) ≥ 20、[pnpm](https://pnpm.io/) ≥ 9、[Ollama](https://ollama.com/)
 
 ```bash
 git clone https://github.com/enisisuko/ICee-agent.git
@@ -122,59 +145,75 @@ pnpm install
 pnpm desktop
 ```
 
-拉取模型并启动：
-
 ```bash
+# 在另一个终端，启动 Ollama 并拉取模型
 ollama serve
 ollama pull qwen2.5:7b
 ```
 
-打开应用 → 设置 → 添加 Provider → 输入任务 → 看它运行。
+打开应用 → 设置 → 添加服务商 → 输入任务 → 观察执行过程。
 
 ---
 
 ## 🗂️ 项目结构
 
-pnpm monorepo，基于 Turborepo：
+pnpm Monorepo，由 Turborepo 驱动：
 
 ```
 ICee-agent/
-├── apps/desktop/          # Electron 应用
-│   └── src/
-│       ├── main/          # 主进程：IPC、运行时、MCP、内置工具
-│       └── renderer/      # React UI：NerveCenter、侧边栏、设置
+├── apps/
+│   └── desktop/           # Electron 应用（主进程 + 渲染进程）
+│       └── src/
+│           ├── main/      # IPC 处理器、MCP 客户端、内置工具、SQLite
+│           └── renderer/  # React UI — NerveCenter、侧边栏、设置
 ├── packages/
-│   ├── core/              # 智能体引擎：ReAct 循环、GraphRuntime、执行器
+│   ├── core/              # 智能体引擎：ReAct 循环、GraphRuntime、执行器、技能
+│   ├── providers/         # LLM 适配器：Ollama、OpenAI 兼容
 │   ├── shared/            # Zod Schema、共享 TypeScript 类型
 │   └── db/                # SQLite 层（8 张表，自动迁移）
-└── demo/                  # 最简示例
-    ├── ollama-chat/       # 3 节点对话流水线
-    └── search-summarize/  # 4 节点搜索+总结
+└── demo/
+    ├── ollama-chat/       # 最简 3 节点对话流水线
+    └── search-summarize/  # 4 节点搜索 + 总结示例
 ```
+
+---
+
+## 🛠️ 技术栈
+
+| 层级 | 技术 |
+|------|------|
+| 桌面外壳 | Electron 35 |
+| UI 框架 | React 18 + Framer Motion 11 + Tailwind CSS 3 |
+| 智能体引擎 | 自研 ReAct 循环 · GraphRuntime（run / forkRun / cancelRun） |
+| 持久化 | SQLite（better-sqlite3）· 8 张表 · 自动迁移 |
+| 构建工具 | Vite 5 · pnpm workspaces · Turborepo |
+| 打包分发 | electron-builder · NSIS（Windows）· DMG（macOS） |
 
 ---
 
 ## 🗺️ 路线图
 
-- [x] 带 token 流式输出的 ReAct 循环
+- [x] 带 Token 流式输出的 ReAct 智能体循环
 - [x] 实时节点可视化（NerveCenter）
-- [x] 步骤级回退与提示词编辑重跑
-- [x] 8 个内置工具（无需 API Key）
-- [x] Ollama / 本地模型优先支持
-- [x] 多 Provider（云端 + 本地）
-- [x] Rules 系统（全局 + 项目级）
+- [x] 步骤级回退与重跑（含提示词编辑）
+- [x] 基于 Fork 的执行，DB 级血统追踪
+- [x] 8 个内置工具 — 无需 API Key
+- [x] Ollama / 本地模型优先
+- [x] 多服务商支持（云端 + 本地）
+- [x] 规则系统（全局 + 项目级）
 - [x] MCP 工具服务器集成
 - [x] 多轮对话
-- [ ] 打包安装程序（NSIS / DMG）
-- [ ] 插件系统（架构已就位）
+- [x] 打包安装程序 — v1.0.3（Windows NSIS + macOS DMG）
+- [x] 插件系统（架构已就位）
 - [ ] 子智能体市场预设
-- [ ] Web 版本
+- [ ] Web 版本（基于浏览器）
+- [ ] 可视化工作流图形编辑器
 
 ---
 
-## 🤝 贡献
+## 🤝 参与贡献
 
-请查看 [CONTRIBUTING.md](CONTRIBUTING.md) 了解开发环境搭建、如何新增 Provider、节点执行器或内置工具。
+查看 [CONTRIBUTING.md](CONTRIBUTING.md) 了解开发环境配置，以及如何添加服务商、节点执行器或内置工具。
 
 ---
 

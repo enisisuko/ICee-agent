@@ -1,13 +1,14 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/enisisuko/ICee-agent/master/screenshots/icee-ui-demo.png" alt="ICee Agent" width="100%">
+<img src="https://raw.githubusercontent.com/enisisuko/ICee-agent/main/screenshots/icee-ui-demo.png" alt="ICee Agent" width="100%">
 
-# ICee Agent
+# ICee Agent · v1.0.3
 
-**Run AI agents locally. See every step. Edit anything, anytime.**
+**Local-first AI agent desktop. See every step. Own every step.**
 
-A local-first agent desktop app with real-time node visualization — built for people who want full control over how their AI thinks and acts.
+A desktop app that makes AI agents transparent and controllable — watch every decision live, rewind to any step, edit the prompt, and branch from there.
 
+[![CI](https://github.com/enisisuko/ICee-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/enisisuko/ICee-agent/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/Node-%3E%3D20-brightgreen)](https://nodejs.org/)
 [![Electron](https://img.shields.io/badge/Electron-35-blueviolet)](https://www.electronjs.org/)
@@ -22,36 +23,48 @@ A local-first agent desktop app with real-time node visualization — built for 
 
 ## Why ICee?
 
-Most AI agent tools are black boxes. You submit a task, wait, and hope the result is right.
+Most AI agent tools are black boxes. You submit a task, wait, hope the result is right — and when it isn't, you start over from scratch.
 
-ICee is different. Every step the agent takes is rendered as a live node — you watch it think, act, and complete in real time. And when something goes wrong (or could be better), you don't restart from scratch. You **rewind to that exact step, edit the prompt, and rerun from there**.
+ICee is built differently:
+
+| | Other agents | ICee Agent |
+|---|:---:|:---:|
+| See every step live | ✗ | ✓ |
+| Edit a prompt mid-run | ✗ | ✓ |
+| Fork the workflow from any step | ✗ | ✓ |
+| Works completely offline | Maybe | **Always** |
+| Requires an API key | Required | **Optional** |
 
 ---
 
-## ✨ Two things ICee does better than anything else
+## ✨ What makes ICee different
 
 ### 1. Step-level rewind & re-execution
 
-<img src="https://raw.githubusercontent.com/enisisuko/ICee-agent/master/screenshots/icee-step-detail.png" alt="Step detail with revert and rerun controls" width="100%">
+<img src="https://raw.githubusercontent.com/enisisuko/ICee-agent/main/screenshots/icee-step-detail.png" alt="Step detail with revert and rerun controls" width="100%">
 
-Every node shows its full **step history**: what prompt was sent, what the output was, how long it took, whether it succeeded or retried. At any point you can:
+Every node records its full execution history: the exact prompt sent, the output received, token count, duration, and whether it succeeded or retried. At any point you can:
 
 - **Revert this step** — roll back to a previous attempt within the same node
-- **Rerun from here** — branch the entire workflow from this node forward
+- **Rerun from here** — branch the entire workflow forward from this node
 
-<img src="https://raw.githubusercontent.com/enisisuko/ICee-agent/master/screenshots/icee-rerun-modal.png" alt="Rerun modal — edit the prompt before re-executing" width="100%">
+<img src="https://raw.githubusercontent.com/enisisuko/ICee-agent/main/screenshots/icee-rerun-modal.png" alt="Rerun modal — edit the prompt before re-executing" width="100%">
 
-The rerun modal lets you **edit the exact prompt** that gets sent — with the previous input and output shown side by side for context. Change one word or rewrite the whole thing. Downstream nodes are cleared and re-executed from the branch point.
+The rerun modal shows the previous input and output side by side for context — then lets you edit the exact prompt before re-executing. Change one word or rewrite the whole thing. Downstream nodes are cleared and re-run from the branch point.
 
-<img src="https://raw.githubusercontent.com/enisisuko/ICee-agent/master/screenshots/icee-node-graph.png" alt="Node graph showing step states" width="100%">
+> **Under the hood**: each fork generates a new `runId` in SQLite with `parent_run_id` and `fork_from_step_id` fields. The complete execution lineage is preserved — you can always trace how you got to any result.
 
-Node states update live: `done` (green) → `error` (red) → `Step reverted by user` → rerunning. The graph always reflects exactly where the agent is.
+<img src="https://raw.githubusercontent.com/enisisuko/ICee-agent/main/screenshots/icee-node-graph.png" alt="Node graph showing step states" width="100%">
+
+Node states update live: `running` → `done` (green) / `error` (red) → `Step reverted by user` → rerunning. The graph always reflects exactly where the agent is.
 
 ---
 
 ### 2. Local-model first — no cloud required
 
-ICee is designed from the ground up to run with **local LLMs via Ollama**. No API key, no data leaving your machine, no per-token billing.
+ICee is built from the ground up to run with **local LLMs via Ollama**. No API key, no data leaving your machine, no per-token billing.
+
+> **Completely offline**: Ollama handles the LLM, DuckDuckGo powers web search (no key), and 8 built-in tools cover filesystem, clipboard, and code execution. Every feature works with zero external accounts.
 
 ```bash
 ollama pull qwen2.5:7b      # recommended for Chinese tasks
@@ -59,13 +72,11 @@ ollama pull llama3.2        # fast general-purpose
 ollama pull deepseek-r1:8b  # strong reasoning
 ```
 
-Every feature — streaming output, tool calls, multi-turn memory, context compression — works identically whether you're using Ollama locally or a cloud provider. The provider is a config entry; the rest of the system doesn't care.
-
-Supported providers out of the box:
+Every feature — streaming output, tool calls, multi-turn memory, context compression — works identically whether you're using a local model or a cloud provider. The provider is a single config entry; the rest of the system doesn't change.
 
 | Provider | Type | Notes |
 |----------|------|-------|
-| **Ollama** | Local | Default. No key, no cost, full privacy |
+| **Ollama** | Local | Default — no key, no cost, full privacy |
 | **LM Studio** | Local | OpenAI-compatible local server |
 | **OpenAI** | Cloud | GPT-4o, o1, etc. |
 | **Groq** | Cloud | Fast inference, generous free tier |
@@ -76,22 +87,22 @@ Supported providers out of the box:
 
 ## What the agent can do
 
-ICee runs a **ReAct loop** (Reason → Act → Observe, up to 20 iterations). The agent autonomously decides which tools to call and when to stop.
+ICee runs a **ReAct loop** (Reason → Act → Observe, up to 20 iterations). The agent autonomously decides which tools to call and when to stop. If it's not making progress, a nudge prompts it to reformat; at the iteration limit, it writes a forced summary at lower temperature.
 
 ### 8 built-in tools — zero setup
 
+All tools run directly in the Electron process. No external server, no configuration.
+
 | Tool | What it does |
 |------|-------------|
-| `web_search` | DuckDuckGo search, no API key |
-| `http_fetch` | Fetch any URL, strips HTML |
-| `fs_read` | Read files or list directories |
-| `fs_write` | Write files (creates dirs as needed) |
-| `code_exec` | Run JS / Python / Bash inline |
+| `web_search` | DuckDuckGo search — no API key |
+| `http_fetch` | Fetch any URL, strips scripts and HTML tags |
+| `fs_read` | Read files or list directory contents |
+| `fs_write` | Write files, creates directories as needed |
+| `code_exec` | Run JS / Python / Bash (PowerShell on Windows) inline |
 | `clipboard_read` | Read system clipboard |
 | `clipboard_write` | Write to system clipboard |
-| `browser_open` | Open URL in default browser |
-
-All tools run directly in the Electron process — no external server needed.
+| `browser_open` | Open any URL in the default browser |
 
 ### MCP tool server support
 
@@ -100,20 +111,32 @@ Connect any [Model Context Protocol](https://modelcontextprotocol.io/) server fo
 ### Rules system
 
 Shape agent behavior with a two-layer rules system:
-- **Global rules** — stored in SQLite, applied to every session
+- **Global rules** — stored in SQLite, injected into every session's system prompt
 - **Project rules** — place `.icee/rules.md` in any directory; auto-loaded when working there
+
+### Agent skills
+
+| Skill | What it does |
+|-------|-------------|
+| `ContextCompressor` | Auto-compresses history at 80% token budget — preserves task definition and recent context |
+| `RetryWithBackoff` | Exponential backoff retry on LLM failure (2 attempts, up to 10s delay) |
+| `OutputFormatter` | Normalizes code blocks, fixes spacing in the final output |
 
 ---
 
 ## 🚀 Quick Start
 
-### Requirements
+### Option A — Download the installer
 
-- [Node.js](https://nodejs.org/) ≥ 20
-- [pnpm](https://pnpm.io/) ≥ 9
-- [Ollama](https://ollama.com/) (recommended) or any OpenAI-compatible API
+Download the latest release for your platform from [Releases](https://github.com/enisisuko/ICee-agent/releases):
+- **Windows**: `ICEE Agent Setup 1.0.3.exe` (NSIS installer)
+- **macOS**: `ICee-Agent-1.0.3.dmg`
 
-### Install & run
+Then install [Ollama](https://ollama.com/), pull a model, and launch ICee.
+
+### Option B — Run from source
+
+**Requirements**: [Node.js](https://nodejs.org/) ≥ 20, [pnpm](https://pnpm.io/) ≥ 9, [Ollama](https://ollama.com/)
 
 ```bash
 git clone https://github.com/enisisuko/ICee-agent.git
@@ -122,9 +145,8 @@ pnpm install
 pnpm desktop
 ```
 
-Pull a model and start:
-
 ```bash
+# In a separate terminal, start Ollama and pull a model
 ollama serve
 ollama pull qwen2.5:7b
 ```
@@ -139,18 +161,33 @@ pnpm monorepo, powered by Turborepo:
 
 ```
 ICee-agent/
-├── apps/desktop/          # Electron app
-│   └── src/
-│       ├── main/          # Main process: IPC, runtime, MCP, tools
-│       └── renderer/      # React UI: NerveCenter, Sidebar, Settings
+├── apps/
+│   └── desktop/           # Electron app (main + renderer)
+│       └── src/
+│           ├── main/      # IPC handlers, MCP client, built-in tools, SQLite
+│           └── renderer/  # React UI — NerveCenter, Sidebar, Settings
 ├── packages/
-│   ├── core/              # Agent engine: ReAct loop, GraphRuntime, executors
+│   ├── core/              # Agent engine: ReAct loop, GraphRuntime, executors, skills
+│   ├── providers/         # LLM adapters: Ollama, OpenAI-compatible
 │   ├── shared/            # Zod schemas, shared TypeScript types
 │   └── db/                # SQLite layer (8 tables, auto-migration)
-└── demo/                  # Minimal examples
-    ├── ollama-chat/       # 3-node chat pipeline
-    └── search-summarize/  # 4-node search + summarize
+└── demo/
+    ├── ollama-chat/       # Minimal 3-node chat pipeline
+    └── search-summarize/  # 4-node search + summarize example
 ```
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Desktop shell | Electron 35 |
+| UI framework | React 18 + Framer Motion 11 + Tailwind CSS 3 |
+| Agent engine | Custom ReAct loop · GraphRuntime (run / forkRun / cancelRun) |
+| Persistence | SQLite via better-sqlite3 · 8 tables · auto-migration |
+| Build tooling | Vite 5 · pnpm workspaces · Turborepo |
+| Packaging | electron-builder · NSIS (Windows) · DMG (macOS) |
 
 ---
 
@@ -159,16 +196,18 @@ ICee-agent/
 - [x] ReAct agent loop with token streaming
 - [x] Live node visualization (NerveCenter)
 - [x] Step-level revert & rerun with prompt editing
-- [x] 8 built-in tools (no API key)
-- [x] Ollama / local-model first support
-- [x] Multi-provider (cloud + local)
+- [x] Fork-based execution with DB-level lineage tracking
+- [x] 8 built-in tools — no API key required
+- [x] Ollama / local-model first
+- [x] Multi-provider support (cloud + local)
 - [x] Rules system (global + per-project)
 - [x] MCP tool server integration
 - [x] Multi-turn conversation
-- [ ] Packaged installer (NSIS / DMG)
-- [ ] Plugin system (architecture in place)
+- [x] Packaged installer — v1.0.3 (Windows NSIS + macOS DMG)
+- [x] Plugin system (architecture in place)
 - [ ] Sub-agent marketplace presets
-- [ ] Web version
+- [ ] Web version (browser-based)
+- [ ] Visual graph editor for workflow design
 
 ---
 
