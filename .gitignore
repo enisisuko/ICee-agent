@@ -14,7 +14,18 @@ coverage
 out
 build
 
-# AI assistant working directories (not part of the project)
+# AI assistant working directories and files (not part of the project)
 cursor-output/
 cursor输出/
 cursor_output/
+.cursor/
+
+# AI internal index / dev notes
+代码管家.md
+
+# Temporary verification screenshots (not referenced in README)
+icee-ui-verify2.png
+screenshots/icee-v034-fixed.png
+screenshots/i18n-verify.png
+screenshots/ollama-running.png
+screenshots/ui-v014.png
