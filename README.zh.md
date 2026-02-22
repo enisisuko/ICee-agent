@@ -16,7 +16,7 @@
 
 ---
 
-![ICee Agent 运行截图](screenshots/icee-v034-fixed.png)
+![ICee Agent 运行截图](screenshots/icee-ui-demo.png)
 
 ---
 

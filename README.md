@@ -16,7 +16,7 @@
 
 ---
 
-![ICee Agent in action](screenshots/icee-v034-fixed.png)
+![ICee Agent in action](screenshots/icee-ui-demo.png)
 
 ---
 
