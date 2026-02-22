@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import type { SidebarRoute, ConversationSession } from "../../types/ui.js";
 import { useLanguage } from "../../i18n/LanguageContext.js";
+import logoUrl from "../../assets/logo.png";
 
 interface SidebarProps {
   activeRoute: SidebarRoute;
@@ -65,22 +66,14 @@ export function Sidebar({
       }}
     >
       {/* ① Logo */}
-      <div className="flex items-center gap-2.5 px-4 py-4 flex-shrink-0">
-        <div
-          className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0"
-          style={{
-            background: "rgba(96,165,250,0.12)",
-            border: "1px solid rgba(96,165,250,0.20)",
-          }}
-        >
-          <span className="text-xs font-semibold" style={{ color: "#60a5fa" }}>I</span>
-        </div>
-        <span
-          className="text-sm font-medium tracking-wide"
-          style={{ color: "rgba(255,255,255,0.55)" }}
-        >
-          ICEE
-        </span>
+      <div className="flex items-center px-3 py-3 flex-shrink-0">
+        <img
+          src={logoUrl}
+          alt="ICee"
+          className="w-full"
+          style={{ maxHeight: "36px", objectFit: "contain", objectPosition: "left center" }}
+          draggable={false}
+        />
       </div>
 
       {/* ② 页面导航 */}
