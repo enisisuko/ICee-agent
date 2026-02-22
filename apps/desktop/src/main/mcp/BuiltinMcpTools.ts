@@ -65,7 +65,7 @@ const webSearch: BuiltinToolHandler = {
         headers: {
           "User-Agent":
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
-          Accept: "text/html",
+          Accept: "text/html,application/xhtml+xml",
         },
       });
 
@@ -75,27 +75,41 @@ const webSearch: BuiltinToolHandler = {
 
       const html = await res.text();
 
-      // 从 HTML 中提取结果（简单正则解析 DuckDuckGo Lite 结构）
+      // DuckDuckGo Lite 实际 HTML 结构：
+      //   <a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=URL_ENCODED">Title</a>
+      // 注意：class 在 href 前面；href 是重定向链接，真实 URL 在 uddg= 参数中
       const results: Array<{ title: string; url: string; snippet: string }> = [];
 
-      // DuckDuckGo Lite 结构: <a class="result__a" href="...">title</a>
-      const linkPattern = /href="([^"]+)"[^>]*class="result__a"[^>]*>([^<]+)<\/a>/g;
-      const snippetPattern = /class="result__snippet"[^>]*>([^<]+)</g;
+      // 匹配 class="result__a" href="..."（class 在前）
+      const linkPattern = /class="result__a"\s+href="([^"]+)"[^>]*>([^<]+)<\/a>/g;
+      // snippet 可能包含 HTML 实体，用更宽松的匹配
+      const snippetPattern = /class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g;
 
       const links: Array<{ url: string; title: string }> = [];
       let m;
       while ((m = linkPattern.exec(html)) !== null && links.length < maxResults) {
         const href = m[1] ?? "";
-        const title = m[2] ?? "";
-        if (href.startsWith("http")) {
-          links.push({ url: href, title: title.trim() });
+        const title = (m[2] ?? "").trim();
+        if (!title) continue;
+
+        // 从 DDG 重定向链接中提取真实 URL（uddg= 参数）
+        let realUrl = href;
+        const uddgMatch = href.match(/[?&]uddg=([^&]+)/);
+        if (uddgMatch) {
+          realUrl = decodeURIComponent(uddgMatch[1] ?? "");
+        } else if (href.startsWith("//")) {
+          realUrl = `https:${href}`;
         }
+
+        links.push({ url: realUrl, title });
       }
 
       const snippets: string[] = [];
       let sn;
       while ((sn = snippetPattern.exec(html)) !== null) {
-        snippets.push((sn[1] ?? "").trim());
+        // 去除 HTML 标签，提取纯文本
+        const raw = (sn[1] ?? "").replace(/<[^>]+>/g, "").trim();
+        if (raw) snippets.push(raw);
       }
 
       for (let i = 0; i < Math.min(links.length, maxResults); i++) {
@@ -107,6 +121,8 @@ const webSearch: BuiltinToolHandler = {
       }
 
       if (results.length === 0) {
+        // 调试：输出 HTML 片段帮助排查
+        console.warn(`[BuiltinMcp:web_search] No results parsed. HTML length=${html.length}, sample:`, html.slice(9000, 9500));
         return `No results found for: "${query}"`;
       }
 
@@ -118,7 +134,7 @@ const webSearch: BuiltinToolHandler = {
         .join("\n\n");
 
       console.log(`[BuiltinMcp:web_search] Found ${results.length} results`);
-      return `Web search results for "${query}":\n\n${formatted}`;
+      return `Search results for "${query}":\n\n${formatted}`;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[BuiltinMcp:web_search] Error:`, msg);
